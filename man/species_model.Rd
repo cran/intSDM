@@ -7,6 +7,7 @@
 species_model(
   speciesNames,
   date = NULL,
+  gbifOpts = list(coordinateUncertaintyInMeters = "0,1000"),
   structuredData = NULL,
   spatialCovariates = NULL,
   worldclimCovariates = NULL,
@@ -18,6 +19,8 @@ species_model(
   mesh = NULL,
   meshParameters = NULL,
   spdeModel = NULL,
+  biasField = FALSE,
+  biasModel = NULL,
   projection = CRS("+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
   limit = 10000,
   options = list(),
@@ -29,13 +32,15 @@ species_model(
 
 \item{date}{Vector of length two denoting the date range to select species from. Defaults to \code{NULL}.}
 
+\item{gbifOpts}{A named list of additional options to filter the GBIF records. See \code{?rgbif::occ_search} for the filters which may be applied to the GBIF records. Defaults to \code{list(coordinateUncertaintyInMeters = '0,1000')} which specifies a desired range of coordinates uncertainty (in meters) between 0 and 1000.}
+
 \item{structuredData}{Additional datasets to integrate with the presence only GBIF data. See the \code{structured_data} function. Defaults to \code{NULL}.}
 
 \item{spatialCovariates}{Spatial covariates to include in the model. May be a \code{Raster} or \code{Spatial} object. Cannot be non-\code{NULL} if \code{worldclimCovariates} is non-\code{NULL}.}
 
 \item{worldclimCovariates}{Names of the covariates to extract from Worldclim. Defaults to \code{NULL}; cannot be non-\code{NULL} if \code{spatialCovariates} is non-\code{NULL}.}
 
-\item{res}{Resolution for the world clim covariates. Valid values are: \code{0.5,2.5,5,10}. Defaults to \code{0.5}.}
+\item{res}{Resolution for the WorldClim covariates. Valid values are: \code{0.5,2.5,5,10}. Defaults to \code{0.5}.}
 
 \item{scale}{Should the spatial covariates be scaled. Defaults to \code{FALSE}.}
 
@@ -49,7 +54,11 @@ species_model(
 
 \item{meshParameters}{A list of inla.mesh arguments to create a mesh if \code{mesh = NULL}.}
 
-\item{spdeModel}{inla.spde model used in the model. May be a named list where the name of the spde object is the name of the associated dataset. Default NULL uses inla.spde2.matern.}
+\item{spdeModel}{\code{inla.spde} model used in the model. May be a named list where the name of the spde object is the name of the associated dataset. Default \code{NULL} uses \code{inla.spde2.matern}.}
+
+\item{biasField}{Should a second (bias) random field be added to the GBIF data. Defaults to \code{FALSE}.}
+
+\item{biasModel}{\code{inla.spde} model used for the bias field. Requires \code{biasModel} to be \code{TRUE}. Default \code{NULL} uses \code{inla.spde2.matern}.}
 
 \item{projection}{CRS projection to use. Defaults to \code{CRS('+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m +no_defs')}.}
 
