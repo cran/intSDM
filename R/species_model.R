@@ -1,410 +1,1026 @@
-#' @title \emph{species_model}: function to construct an integrated species distribution model, as well as other useful outputs from the model.
-#' @description This function is used to construct integrated species distribution models using data specified with \code{\link{structured_data}} as well as present only data obtained from the Global Biodiversity Information Facility (GBIF).
-#'
-#' @param speciesNames A vector of species' names to collect from GBIF.
-#' @param date Vector of length two denoting the date range to select species from. Defaults to \code{NULL}.
-#' @param gbifOpts A named list of additional options to filter the GBIF records. See \code{?rgbif::occ_search} for the filters which may be applied to the GBIF records. Defaults to \code{list(coordinateUncertaintyInMeters = '0,1000')} which specifies a desired range of coordinates uncertainty (in meters) between 0 and 1000.
-#' @param structuredData Additional datasets to integrate with the presence only GBIF data. See the \code{structured_data} function. Defaults to \code{NULL}.
-#' @param spatialCovariates Spatial covariates to include in the model. May be a \code{Raster} or \code{Spatial} object. Cannot be non-\code{NULL} if \code{worldclimCovariates} is non-\code{NULL}.
-#' @param worldclimCovariates Names of the covariates to extract from Worldclim. Defaults to \code{NULL}; cannot be non-\code{NULL} if \code{spatialCovariates} is non-\code{NULL}.
-#' @param res Resolution for the WorldClim covariates. Valid values are: \code{0.5,2.5,5,10}. Defaults to \code{0.5}.
-#' @param scale Should the spatial covariates be scaled. Defaults to \code{FALSE}.
-#' @param location Which area of Norway to model. Defaults to \code{'Norway'} which suggests a model for the entire county.
-#' @param boundary SpatialPolygons object of the study area. If \code{NULL} an object may be formed with \code{location}.
-#' @param return Object to return. Has to be one of \code{c('boundary', 'species', 'species plot', 'mesh', 'mesh plot', 'model', 'predictions', 'predictions map')}.
-#' @param mesh An inla.mesh object to include in the model. Defaults to \code{NULL}.
-#' @param meshParameters A list of inla.mesh arguments to create a mesh if \code{mesh = NULL}.
-#' @param spdeModel \code{inla.spde} model used in the model. May be a named list where the name of the spde object is the name of the associated dataset. Default \code{NULL} uses \code{inla.spde2.matern}.
-#' @param biasField Should a second (bias) random field be added to the GBIF data. Defaults to \code{FALSE}.
-#' @param biasModel \code{inla.spde} model used for the bias field. Requires \code{biasModel} to be \code{TRUE}. Default \code{NULL} uses \code{inla.spde2.matern}.
-#' @param projection CRS projection to use. Defaults to \code{CRS('+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m +no_defs')}.
-#' @param limit Set the number of species downloaded. Defaults to \code{10000}.
-#' @param options A list of \code{INLA} and \code{inlabru} options. Defaults to \code{NULL}.
-#' @param ... Additional arguments used in PointedSDMs's intModel function.
-#'
-#' @import ggplot2
-#' @import sp
-#' @import methods
-#' @import stats
-#' @import inlabru
-#' @import PointedSDMs
-#' @importFrom raster getData
-#' @importFrom raster crop
-#' @importFrom raster merge
-#' @importFrom raster mask
-#@importFrom maps map
-#' @importFrom spocc occ
-#' @importFrom dplyr bind_rows
-#@importFrom maptools map2SpatialPolygons
-#'
-#' @examples {
-#'
-#'
-#' \dontrun{
-#'  if(requireNamespace('INLA')) {
-#'
-#'  #Objects required for example
-#'  data("PA_redlist")
-#'  speciesNames <- c('Fraxinus excelsior', 'Ulmus glabra')
-#'
-#'  #Set up structured dataset
-#'    dataObj <- structured_data(PA_redlist, datasetType = c('PA'), responsePA = 'individualCount',
-#'    speciesName = 'species',
-#'    coordinateNames = c("longitude", "latitude" ))
-#'
-#'   #Get species map
-#'     predictions <- species_model(return = 'species plot',
-#'     boundary = boundary, speciesNames = species,
-#'     limit = 10, structuredData = dataObj,
-#'     meshParameters = list(cutoff=0.08, max.edge=c(1, 3), offset=c(1,1)),
-#'     worldclimCovariates ='Annual Mean Temperature')
-#'   }
-#'
-#'   }
-#'
-#' }
-#'
-#' @return The return of the function is determined by the argument \code{return}. For the different values of return: \item{\code{boundary}}{A \code{SpatialPolygon} of the boundary used in the model,} \item{\code{species}}{A \code{data.frame} object of the species' coordinates used in the model,} \item{\code{species plot}}{a \code{ggplot} plot of the species across a map,} \item{\code{mesh}}{an \code{inla.mesh} object,} \item{\code{mesh plot}}{a plot of the \code{inla.mesh object},} \item{model}{the integrated model,} \item{\code{predictions}}{predictions from the integrated model (on the linear scale),} \item{\code{predictions map}}{A \code{ggplot} plot of the predictions across the boundary.}
-#'
+#' @title R6 class for creating a \code{species_model} object.
+#' @description An object containing the data, covariates  and other relevant information to be used in the reproducible workflow. The function \link[intSDM]{startWorkflow} acts as a wrapper in creating one of these objects. This object has additional slot functions within, which allow for further specification and customization of the reproducible workflow.
 #' @export
+#' @importFrom R6 R6Class
+#'
+species_model <- R6::R6Class(classname = 'species_model', public = list(
 
-species_model <- function(speciesNames,
-                          date = NULL,
-                          gbifOpts = list(coordinateUncertaintyInMeters = '0,1000'),
-                          structuredData = NULL,
-                          spatialCovariates = NULL,
-                          worldclimCovariates = NULL,
-                          res = 0.5, scale = FALSE,
-                          location = 'Norway', boundary = NULL,
-                          return = 'predictions map', mesh = NULL,
-                          meshParameters = NULL, spdeModel = NULL,
-                          biasField = FALSE, biasModel = NULL,
-                          projection = CRS('+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'),
-                          limit = 10000, options = list(), ...) {
+#' @description initialize the species_model object.
+#' @param Countries Name of the countries to include in the workflow.
+#' @param Species Name of the species to include in the workflow.
+#' @param nameProject Name of the project for the workflow.
+#' @param Save Logical argument indicating if the model outputs should be saved.
+#' @param Directory Directory where the model outputs should be saved.
+#' @param Projection The coordinate reference system used in the workflow.
+#' @param Quiet Logical variable indicating if the workflow should provide messages throughout the estimation procedure.
+#'
 
-  if (missing(speciesNames) && is.null(structuredData) && return %in% c('model', 'predictions', 'predictions map')) stop('Please provide at least one of speciesNames and structuredData.')
+  initialize = function(Countries, Species, nameProject, Save,
+                        Directory, Projection, Quiet = TRUE) {
 
-  if (!is.null(structuredData)) {
+    private$Projection <- Projection
+    private$Quiet <- Quiet
 
-    if (!inherits(structuredData, 'structuredData')) stop('Please run your additional data through the structured_data function.')
+    if (!missing(Countries)) {
 
-  }
+      #private$Countries <- Countries
+      countryAdded <- self$addArea(countryName = Countries)
 
-  worldclimIndex <- data.frame(index = paste0('layer.',1:19),
-                               variable = c('Annual Mean Temperature', 'Mean Diurnal Range',
-                                            'Isothermality', 'Temperature Seasonality', 'Max Temperature of Warmest Month',
-                                            'Min Temperature of Coldest Month', 'Temperature Annual Range',
-                                            'Mean Temperature of Wettest Quarter', 'Mean Temperature of Driest Quarter',
-                                            'Mean Temperature of Warmest Quarter', 'Mean Temperature of Coldest Quarter',
-                                            'Annual Precipitation', 'Precipitation of Wettest Month',
-                                            'Precipitation of Driest Month', 'Precipitation Seasonality ',
-                                            'Precipitation of Wettest Quarter', 'Precipitation of Driest Quarter',
-                                            'Precipitation of Warmest Quarter', 'Precipitation of Coldest Quarter'))
+    }
 
-  if (length(return) > 1) stop('return must contain only one element.')
+    private$Species <- Species
+    private$timeStarted <- Sys.time()
+    private$Directory <- Directory
+    private$Project <- nameProject
+    private$Save <- Save
 
-  if (!return%in%c('boundary','species', 'species plot', 'mesh', 'mesh plot', 'model', 'predictions', 'predictions map')) stop('return is not one of: boundary, species, species plot, mesh, mesh plot, model, predictions, predictions map.')
 
-  #if (!is.null(boundary)) {
 
-  #  if(class(boundary) != 'SpatialPolygons' | class(boundary) != 'SpatialPolygonsDataFrame') stop('Boundary needs to be a SpatialPolygon*s object.')
+  },
 
-  #}
+#' @description Prints the datasets, their data type and the number of observations, as well as the marks and their respective families.
+#' @param ... Not used.
+#' @import stats
+#' @examples
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' workflow$print()
 
-  if (!is.null(worldclimCovariates) & !is.null(spatialCovariates)) stop("One of worldclimCovariates and spatialCovariates must be NULL. Please only chose one set of spatial covariates to model (or none)")
+  print = function(...) {
 
-  if (!is.null(spatialCovariates)) {
+    cat('intSDM reproducible workflow summary:\n\n')
 
-    if (inherits(spatialCovariates, 'data.frame')) stop('data.frame spatial covariates are not permitted. Please convert these to a Raster* or Spatial* object.')
-  }
+    cat('Research area: ')
 
-  if (!is.null(worldclimCovariates)) {
+    if (is.null(private$Area)) {
 
-    if (!any(worldclimCovariates%in%worldclimIndex[,2])) stop('worldclimCovariates given includes variable names not present in the worldclim dataset.')
+      cat('No research area provided: please add one using `.$addArea`.\n\n')
 
-  }
+    } else {
 
-  if (is.null(boundary)) {
-    ## or get from getData('GADM' , country="NOR", level=1) using RASTER ??
-    ## probably better but super slow
-    #boundary <- fhimaps::norway_nuts3_map_b2020_default_sf
-    #boundary <- as(boundary,'Spatial')
-     if (location %in% c('Norway', 'norway')) {
+      if (!is.null(private$Countries)) cat(private$Countries, '\n\n')
+      else cat('Own boundry specified, research area unknown.\n\n')
 
-        if (file.exists('~/Data-raw')) norwayfill <- geodata::gadm(country = 'Norway', path = '~/Data-raw', resolution = 2)
-        else norwayfill <- geodata::gadm(country = 'Norway', path = getwd(), resolution = 2)
+      }
 
-        boundary <- as(norwayfill, 'Spatial')
-        proj4string(boundary) <- projection
+    cat('Datasets added: ')
 
-       #norwayfill <- maps::map("world", "norway", fill=TRUE, plot=FALSE,
-       #                   ylim=c(58,72), xlim=c(4,32))
-       #IDs <- sapply(strsplit(norwayfill$names, ":"), function(x) x[1])
-       #boundary <- maptools::map2SpatialPolygons(norwayfill, IDs = IDs,
-       #                                   proj4string = projection)
+    if (length(private$dataGBIF) == 0 && length(private$dataStructured) == 0) {
+
+    cat('No species have been added to the workflow. Please add structured datasets using `.$addStructured` and data from GBIF using `.$addGBIF`.\n\n')
+
+
+    } else {
+
+      datasetNames <- unique(c(unlist(lapply(private$dataGBIF, function(x) names(x))),
+                      unlist(lapply(private$dataStructured, function(x) names(x)))))
+
+      cat(datasetNames, '\n\n') #DO an unlist
+
+
+
+    }
+
+    cat('Environmental covariates added: ')
+
+    if (is.null(private$Covariates)) {
+
+      cat('No covariates have been added to the workflow. Please add covariates using `.$addCovariates`.\n\n')
+
+    } else {
+
+      cat(names(private$Covariates), '\n\n')
+
+
+    }
+
+    cat('Model formula: ') ## Do this
+
+    if (is.null(private$CVMethod)) cat('No Cross-validation specified. Please specify using `.$crossValidation`.\n\n')
+    else cat('Cross-validation:', paste(private$CVMethod, collapse = ', '),'\n\n')
+
+    if (is.null(private$Output)) cat('No Output has been specified. Please specify using `.$workflowOutput`.')
+    else cat('Model output:', paste(private$Output, collapse = ', '))
+
+   }
+  ,
+
+#' @description Makes a plot of the features used in the integrated model.
+#' @param Mesh Add the mesh to the plot.
+#' @param Boundary Add the boundary to the plot.
+#' @param Species Add the species location data to the plot.
+#' @param Covariates Add the spatial covariates to the plot.
+#' @return A ggplot object.
+#' @import ggplot2
+#' @import inlabru
+#' @importFrom tidyterra geom_spatraster
+#' @examples
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' #Add boundary
+#' workflow$addArea(countryName = 'Germany')
+#' workflow$plot(Boundary = TRUE)
+
+  plot = function(Mesh = FALSE,
+                  Boundary = TRUE,
+                  Species = FALSE,
+                  Covariates = FALSE) {
+
+    if (sum(Mesh, Boundary, Species, Covariates) == 0) stop('At least one of Mesh, Boundary, Species or Covariates needs to be chosen.')
+
+    if (Mesh) {
+
+      if (is.null(private$Mesh)) stop('No mesh object provided. Please add one using `.$addMesh()`.')
+
+      meshComponent <- inlabru::gg(private$Mesh)
+
+    } else meshComponent <- NULL
+
+    if (Boundary) {
+
+      if (is.null(private$Area)) stop('No boundary object proived. Please add one using `.$addArea()`.')
+
+      boundaryComponent <- geom_sf(data = sf::st_boundary(private$Area))
+
+    } else boundaryComponent <- NULL
+
+    if (Species) {
+
+      if (all(is.null(private$dataGBIF), is.null(private$dataStructured))) stop('No data objects provided. Please add using either `.$addGBIF` or `.$addStructured`.')
+
+      spatData <- vector(mode = 'list', length = length(private$Species))
+      names(spatData) <-  sub(' ', '_', private$Species)
+
+      for (species in sub(' ', '_', private$Species)) {
+
+        speData <- lapply(append(private$dataGBIF[[species]],
+                                 private$dataStructured[[species]]), function(x) x$geometry)
+
+        namesspeData <- names(speData)
+        namesTimes <- rep(namesspeData, times = unlist(lapply(speData, length)))
+
+        spatData[[species]] <- sf::st_as_sf(do.call(c, speData))
+
+        spatData[[species]]$.__species_index_var <- species
+        spatData[[species]]$.__names_index_var <- namesTimes
+
+      }
+
+      plotSpecies <- do.call(rbind, spatData)
+      speciesComponent <- geom_sf(data = plotSpecies, aes(col = .__names_index_var))
+      guidesComponent <- guides(col = guide_legend(title="Dataset Name")) ##Need to convert this speciesName arg for all species
+      facetComponent <- facet_wrap( ~ .__species_index_var)
+      }
+
+    else {
+
+        speciesComponent <- NULL
+        guidesComponent <- NULL
+        facetComponent <- NULL
+
+      }
+
+    if (Covariates) {
+
+      if (is.null(private$Covariates)) stop('No covariates object provided. Please add using `.$addCovariates()`.')
+
+      plotList <- list()
+
+      for (cov in names(private$Covariates)) {
+
+
+        plotList[[cov]] <- ggplot() +
+                           tidyterra::geom_spatraster(data = private$Covariates[[cov]]) +
+                           boundaryComponent +
+                           meshComponent +
+                           speciesComponent +
+                           guidesComponent
+
+
+
+      }
+
+      if (length(plotList) > 1) inlabru::multiplot(plotlist = plotList)
+      else return(plotList[[1]])
+
+
 
     }
     else {
 
-      #stop('TODO::Subset to get the separate counties through mapNO[[1]][1:11]. Make data.frame with index for all counties.')
 
-      boundary <- raster::getData(name = 'GADM', country = 'NOR', level = 1)
-#do paste('\uxxx)
-      if (!any(location%in%c("Akershus", paste0('\u00C3',"stfold"), "Aust-Agder", "Buskerud", "Finnmark", "Hedmark", "Hordaland",
-                              paste0("M", '\u00F8' ,"re og Romsdal"), paste0("Nord-Tr", '\u00F8',"ndelag"), "Nordland", "Oppland", "Oslo", "Rogaland", "Sogn og Fjordane",
-                              paste0("S", '\u00F8',"r-Tr", '\u00F8',"ndelag"), "Telemark", "Troms", "Vest-Agder", "Vestfold"))) stop(paste('At least one of the locations provided is not a valid county in Norway. NOTE:', paste0('Tr', '\u00F8', 'ndelag'), 'is given as', paste0('Nord-Tr', '\u00F8', 'ndelag'), 'and', paste0("S", '\u00F8',"r-Tr", '\u00F8',"ndelag")))
+      plotStr <- ggplot() +
+                 boundaryComponent +
+                 meshComponent +
+                 speciesComponent +
+                 guidesComponent +
+                 facetComponent
 
-      warning('Location is given as a region of Norway. Mesh creation may be slow.')
+      return(plotStr)
 
-      boundary <- boundary[boundary$NAME_1 == location,]
+
+      }
+
+
+
+  }
+  ,
+
+#' @description The function is used to convert structured datasets into a framework which is usable by the model. The three types of structured data allowed by this function are present absence (PA), present only (PO) and counts/abundance datasets, which are controlled using the \code{datasetType} argument. The other arguments of this function are used to specify the appropriate variable (such as response name, trial name, species name and coordinate name) names in these datasets.
+#'
+#' @param dataStructured The dataset used in the model. Must be either a \code{data.frame}, \code{sf} or \code{SpatialPoints*} object, or a \code{list} containing multiples of these classes.
+#' @param datasetType A vector which gives the type of dataset. Must be either \code{'count'}, \code{'PO'} or \code{'PA'}.
+#' @param datasetName An optional argument to create a new name for the dataset. Must be the same length as \code{dataStructured} if that is provided as a \code{list}.
+#' @param responseName Name of the response variable in the dataset. If \code{dataType} is \code{'PO'}, then this argument may be missing.
+#' @param trialsName Name of the trial name variable in the \code{PA} datasets.
+#' @param speciesName Name of the species variable name in the datasets.
+#' @param coordinateNames Names of the coordinate vector in the dataset.
+#' @param generateAbsences Generates absences for \code{'PA'} data. This is done by combining all the sampling locations for all the species, and creating an absence where a given species does not occur.
+#' @import methods
+#' @import sf
+#' @examples
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' #Add boundary
+#' workflow$addArea(countryName = 'Sweden')
+#'
+#' #Generate random species
+#' speciesData <- data.frame(X = runif(1000, 12, 24),
+#'                           Y = runif(1000, 56, 68),
+#'                Response = sample(c(0,1), 1000, replace = TRUE),
+#'                Name = 'Fraxinus_excelsior')
+#' workflow$addStructured(dataStructured = speciesData, datasetType = 'PA',
+#'                        datasetName = 'xx', responseName = 'Response',
+#'                        speciesName = 'Name', coordinateNames = c('X', 'Y'))
+
+  addStructured = function(dataStructured, datasetType,
+                           responseName, trialsName,
+                           datasetName = NULL, speciesName,
+                           coordinateNames, generateAbsences = FALSE) {
+
+    if (missing(dataStructured)) stop('dataStructured needs to be provided')
+
+    if (!is.null(datasetName)) {
+
+      if (inherits(dataStructured, 'list') && length(dataStructured) != length(datasetName)) stop('datasetName needs to be the same length as dataStructured.')
+      else if (length(datasetName) > 1) stop ('datasetName needs to contain only one name')
+
+      dataStructured <- list(dataStructured)
+      names(dataStructured) <- datasetName
+
+
+    } else if (inherits(dataStructured, 'list')) {
+
+      if (!is.null(names(dataList))) datasetName <- names(dataList)
+      else {
+
+        objectName <- as.character(as.list(match.call())$dataStructured)
+        datasetName <- paste0(objectName, seq(1, length(dataStructured)))
+        names(dataStructured) <- datasetName
+
+        }
+
+    } else {
+
+
+      datasetName <- as.character(as.list(match.call())$dataStructured)
+      dataStructured <- list(dataStructured)
+      names(dataStructured) <- datasetName
+
     }
 
-    if (return == 'boundary') {
+    for (dataAdd in datasetName) {
 
-      return(boundary)
+    if (!private$Quiet) message(paste('Adding dataset', dataAdd, 'to the model.'))
+
+    if (dataAdd %in% names(private$dataStructured)) {
+
+      warning('Dataset object already added to the model. Removing the previous version.')
+      private$dataStructured[[dataAdd]] <- NULL
+
+      }
+
+    if (!inherits(dataStructured[[dataAdd]],c('Spatial',
+                  'data.frame','sf'))) stop('dataStructured needs to be either a SpatialPoints*, data.frame or sf object')
+
+    if (missing(speciesName)) stop('speciesName cannot be missing.')
+
+    if (missing(coordinateNames) && all(class(dataStructured[[dataAdd]]) == 'data.frame')) stop('coordinateNames cannot be missing if dataStructured is a data.frame object.')
+    else {
+
+      if (inherits(dataStructured[[dataAdd]], 'Spatial')) coordinateNames <- colnames(dataStructured[[dataAdd]]@coords)
+      if (inherits(dataStructured[[dataAdd]], 'sf')) coordinateNames <- colnames(st_coordinates(dataStructured[[dataAdd]]))
 
     }
+
+    if (is.null(private$Area)) stop('An area needs to be provided before adding species. This may be done with the `.$addArea` function.')
+
+    if (missing(datasetType) || !datasetType %in% c('PO', 'PA', 'Counts')) stop('datasetType needs to be one of "PO", "PA" or "Counts".')
+
+    if (missing(responseName) && datasetType %in% c('PA', 'Counts')) stop('responseName cannot be missing for PA and counts datasets.')
+
+    if (datasetType == 'PA') responseNew <- private$responsePA
+    if (datasetType == 'Counts') responseNew <- private$responseCounts
+    if (datasetType == 'PO') responseNew <- '.__PORESP.__' #NULL
+
+    if (missing(trialsName)) trialsName <- NULL
+    if (missing(responseName)) responseName <- NULL
+    #if (missing(speciesName)) speciesName <- NULL
+
+    dataStructured[[dataAdd]][[speciesName]] <- sub(" ", "_", dataStructured[[dataAdd]][[speciesName]])
+
+    uniqueSpecies <- unique(dataStructured[[dataAdd]][[speciesName]])
+
+    if (!all(uniqueSpecies %in% sub(" ", "_", private$Species))) {
+
+      warning('Species found in dataset not specified in the original startWorkflow call. Removing observations for those species.')
+
+      dataStructured[[dataAdd]] <- dataStructured[[dataAdd]][dataStructured[[dataAdd]][[speciesName]] %in% sub(" ", "_", private$Species), ]
+
+      uniqueSpecies <- unique(dataStructured[[dataAdd]][[speciesName]])
+
+      if (nrow(dataStructured[[dataAdd]]) == 0) stop('All species removed from this dataset. Please specify all the species name using the "Species" argument in startWorkflow.')
+
+    }
+
+
+
+  for (species in uniqueSpecies) {
+
+    private$dataStructured[[species]][[dataAdd]] <- formatStructured(data = dataStructured[[dataAdd]][data.frame(dataStructured[[dataAdd]])[speciesName] == species,],
+                                                                     type =  datasetType,
+                                                                     varsOld = list(trials = trialsName,
+                                                              response = responseName,
+                                                              species = speciesName,
+                                                              coordinates = coordinateNames),
+                                               varsNew = list(coordinates = private$Coordinates,
+                                                              response = responseNew,
+                                                              trials = private$trialsName,
+                                                              species = private$speciesName),
+                                               projection = private$Projection,
+                                               boundary = private$Area)
 
   }
 
-  if (!is.null(structuredData)) {
-    ##Rename all coord names to "latitude";"longitude" to reduce arguments required
-    ##Also standardize speciesName to 'species'
+    if (datasetType == 'PA') {
 
-    coordinateNames <- unlist(attributes(structuredData)['coordinateNames'])
-    speciesName <- unlist(attributes(structuredData)['speciesName'])
-    responsePA <- unlist(attributes(structuredData)['responsePA'])
-    trialsPA <- unlist(attributes(structuredData)['trialsPA'])
-    responseCount <- unlist(attributes(structuredData)['responseCount'])
+    if (generateAbsences) {
 
-    structuredData <- append(structuredData@dataPO, append(structuredData@dataPA, structuredData@dataCount))
+      if (length(uniqueSpecies) == 1) warning("Can't generate absences if only one species is specified.")
 
-    if (any(coordinateNames != c('longitude', 'latitude'))) {
 
-      structuredData <- lapply(structuredData, function(x) {
+      private$dataStructured <- generateAbsences(dataList = private$dataStructured, speciesName = speciesName, datasetName = dataAdd, responseName = responseName, Projection = private$Projection)
 
-        colnames(x@coords) <- c('longitude', 'latitude')
-        return(x)
 
-      })
+    }
+  }
 
-      if (speciesName != 'species') {
+    }
 
-        structuredData <- lapply(structuredData, function(x) {
+    private$datasetName <- c(datasetName, private$datasetName)
 
-          names(x@data)[names(x) == speciesName] <- 'species'
-          return(x)
 
-        })
 
-        #responsePA <- attributes(structuredData)['responsePA']
+  }
+  ,
 
-        if (!is.null(responsePA)) responsePA <- 'responsePA'
+#' @description Function to add an \code{inla.mesh} object to the workflow. The user may either add their own mesh to the workflow, or use the arguments of this function to help create one.
+#' @param Object An \code{inla.mesh} object to add to the workflow.
+#' @param ... Additional arguments to pass to \code{INLA}'s \code{inla.mesh.2d}. Use \code{?inla.mesh.2d} to find out more about the different arguments.
+#' @examples
+#' if (requireNamespace('INLA')) {
+#' \dontrun{
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' #Add boundary
+#' workflow$addArea(countryName = 'Sweden')
+#' workflow$addMesh(cutoff = 20000,
+#'                  max.edge=c(60000, 80000),
+#'                  offset= 100000)
+#'
+#' }
+#' }
 
-        #trialsPA <- attributes(structuredData)['trialsPA']
+  addMesh = function(Object,
+                     ...) {
 
-        if (!is.null(trialsPA)) trialsPA <- 'trialsPA'
+    if (missing(Object) &&
+        is.null(private$Area)) stop ('Please provide an inla.mesh object or use the ... argument to specify a mesh.')
+
+    if (missing(Object)) {
+
+      meshArgs <- list(...)
+      if (length(meshArgs) == 0) stop('Please provide ... to specify the mesh construction. See ?inla.mesh.2d for more details.')
+
+      meshObj <- INLA::inla.mesh.2d(boundary = inlabru::fm_as_inla_mesh_segment(private$Area[1]),
+                                    crs = inlabru::fm_crs(private$Projection),
+                                         ...
+                                          )
+
+      private$Mesh <- meshObj
+
+    }
+    else {
+
+      if (!inherits(Object, 'inla.mesh')) stop('Object provided is not an inla.mesh object.')
+
+      private$Mesh <- Object
+
+    }
+
+    if (!private$Quiet) message('INLA mesh added successfully.')
+
+    }
+  ,
+
+#' @description Function to add species occurrence records from GBIF (using the \code{rgbif} package) to the reproducible workflow. The arguments for this function are used to either filter the GBIF records, or to specify the characteristics of the observation model.
+#' @param Species The names of the species to include in the workflow (initially specified using \link[intSDM]{startWorkflow}). Defaults to \code{All}, which will find occurrence records for all specie specified in \link[intSDM]{startWorkflow}.
+#' @param datasetName The name to give the dataset obtained from GBIF. Cannot be \code{NULL}.
+#' @param datasetType The data type of the dataset. Defaults to \code{PO}, but may also be \code{PA} or \code{Counts}.
+#' @param responseCounts Name of the response variable for the counts data. Defaults to the standard Darwin core value \code{individualCounts}.
+#' @param responsePA Name of the response variable for the PA data. Defaults to the standard Darwin core value \code{occurrenceStatus}.
+#' @param assign2Global Assign the dataset to the global environment. The object will be assigned to an object specified using the \code{datasetName} object.
+#' @param generateAbsences Generates absences for \code{'PA'} data. This is done by combining all the sampling locations for all the species, and creating an absence where a given species does not occur.
+#' @param ... Additional arguments to specify the \link[rgbif]{occ_data} function from \code{rgbif}. See \code{?occ_data} for more details.
+#' @examples
+#' \dontrun{
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#' workflow$addArea(countryName = 'Sweden')
+#'
+#' workflow$addGBIF(datasetName = 'exampleGBIF',
+#'                  datasetType = 'PA',
+#'                  limit = 10000,
+#'                  coordinateUncertaintyInMeters = '0,50')
+#' }
+
+addGBIF = function(Species = 'All', datasetName = NULL,
+                   datasetType = 'PO',
+                   responseCounts = 'individualCount', responsePA = 'occurrenceStatus',
+                   assign2Global = FALSE,
+                   generateAbsences = FALSE, ...) {
+
+  if (is.null(private$Area)) stop('An area needs to be provided before adding species. This may be done with the `.$addArea` function.')
+
+  if (is.null(datasetName)) stop('Please provide a name to give your dataset using datasetName.')
+
+  if (Species == 'All') Species <- private$Species
+  else if (!all(Species %in% private$Species)) stop ('Species provided not specified in startWorkflow().')
+
+  if (datasetName %in% names(private$dataGBIF)) warning ('datasetName already provided before. The older dataset will therefore be removed.')
+
+  ##To do here:
+   #Keep only the relevant PA/Counts variables
+
+  if (!datasetType %in% c('PO', 'PA', 'Counts')) stop('datasetType needs to be one of PO, PA and Counts.')
+
+  if (datasetType == 'PA' && is.null(responsePA)) stop('responsePA cannot be NULL if datasetType is PA.')
+
+  if (datasetType == 'Counts' && is.null(responseCounts)) stop('responseCounts cannot be NULL if datasetType is Counts.')
+
+
+  ##Change the speciesName argument to private$speciesName somewhere
+   #Are we changing for Name or scientific name?
+
+  for (speciesName in Species) {
+
+  if (!private$Quiet) message(paste('Finding GBIF observations for:', speciesName,'\n'))
+
+  GBIFspecies <- obtainGBIF(query = speciesName,
+                                                #datasetName = datasetName,
+                            geometry = private$Area,
+                                                #country = private$Countries,
+                            projection = private$Projection,
+                                                #varsKeep = c(responseCounts, responsePA),
+                            datasettype = datasetType,
+                            ...)
+
+  if (length(private$dataGBIF[[sub(" ", '_', speciesName)]]) > 0) {
+
+    anySame <- st_equals_exact(do.call(c, lapply(private$dataGBIF[[sub(" ", '_', speciesName)]], function(x) st_geometry(x))),
+                               GBIFspecies,
+                               par = 0)
+
+    #anySame <- GBIFspecies$key %in% unique(lapply(private$dataGBIF[[sub(" ", '_', speciesName)]], function(x) x$key))
+    #if (sum(anySame > 0)) {
+    if (!identical(unlist(anySame), integer(0))) {
+
+      warning('Removing duplicate observations obtained from previous calls of `.$addGBIF`')
+
+      GBIFspecies <- GBIFspecies[-c(unlist(anySame)),]
+
+
+    }
+
+
+  }
+
+
+  if (!assign2Global) {
+
+  if (nrow(GBIFspecies) == 0) warning('All species observations were removed due to duplicates')
+  else {
+
+    private$dataGBIF[[sub(" ", '_', speciesName)]][[datasetName]] <- GBIFspecies
+    private$classGBIF[[sub(" ", '_', speciesName)]][[datasetName]] <- datasetType
+
+  }
+  } else datasetName <<- private$dataGBIF[[speciesName]][[datasetName]]#assign(datasetName,  private$dataGBIF[[speciesName]][[datasetName]], envir = globalenv())
+
+  }
+
+  if (datasetType == 'PA') {
+
+    if (generateAbsences) {
+
+      if (length(Species) == 1) warning("Can't generate absences if only one species is specified.")
+
+      private$dataGBIF <- generateAbsences(dataList = private$dataGBIF, speciesName = 'species', datasetName = datasetName, responseName = responsePA, Projection = private$Projection)
+
+
+    }
+  }
+
+  private$datasetName <- c(datasetName, private$datasetName)
+
+  }
+  ,
+
+#' @description Function to add spatial covariates to the workflow. The covariates may either be specified by the user, or they may come from worldClim obtained with the \code{geodata} package.
+#' @param Object A object of class: \code{spatRaster}, \code{SpatialPixelsDataFrame} or \code{raster} containing covariate information across the area. Note that this function will check if the covariates span the boundary area, so it may be preferable to add your own boundary using \code{`.$addArea`} if this argument is specified.
+#' @param worldClim Name of the worldClim to include in the model. See \code{?worldclim_country} from the \code{geodata} package for more information.
+#' @param Months The months to include the covariate for. Defaults to \code{All} which includes covariate layers for all months.
+#' @param res Resolution of the worldclim variable. Valid options are: \code{10}, \code{5}, \code{2.5} or \code{0.5} (minutes of a degree).
+#' @param Function The function to aggregate the temporal data into one layer. Defaults to \code{mean}.
+#' @param ... Not used.
+#'
+#' @import terra
+#' @examples
+#' \dontrun{
+#' if (requireNamespace('INLA')) {
+#'
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' #Add boundary
+#' workflow$addArea(countryName = 'Sweden')
+#' workflow$addCovariates(worldClim = 'tavg', res = '10')
+#'
+#' }
+#'}
+
+  addCovariates = function(Object = NULL,
+                           worldClim = NULL,
+                           res = 2.5,
+                           Months = 'All',
+                           Function = 'mean', ...) {
+
+    if (is.null(private$Area)) stop("Area is required before obtaining covariates. Please use `.$addArea()`.")
+
+    if (all(is.null(Object),
+            is.null(worldClim))) stop ('One of object or worldClim is required..')
+
+
+    if (length(worldClim) > 1) stop ('Please only add one worldClim variable at a time.')
+
+
+  if (is.null(Object)) {
+
+    if (!worldClim %in% c("tavg", "tmin", "tmax",
+                          "prec", "bio", "bioc",
+                          "elev", "wind", "vapr", "srad")) stop('worldClim argument is not a valid option.')
+
+    if (is.null(Months) && is.null(Function)) stop('Both of Months or Function need to be specified.')
+
+    months <- c('January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December')
+
+    if (!any(Months %in% c(months, 'All'))) stop ('Month provided is not valid.')
+
+    if (all(Months == 'All')) covIndex <- 1:12
+    else covIndex <- match(Months, months)
+
+    covDirectory <- paste0(private$Directory, '/Covariates')
+    dir.create(covDirectory, showWarnings = FALSE)
+    if (!dir.exists(covDirectory)) covDirectory <- getwd()#dir.create(covDirectory)
+    if (!private$Quiet) message(paste('Saved covariate objects may be found in', covDirectory))
+
+    if (is.null(private$Countries)) stop('Please specify a country first before obtaining a covariate layer. This may be done using either startWorkflow or through `.$addArea`.')
+
+    covRaster <- obtainCovariate(covariates = worldClim,
+                                 res = res,
+                                 as.character(private$Projection),
+                                 path = covDirectory)
+
+    covRaster <- terra::mask(terra::crop(covRaster, private$Area), private$Area)
+
+    if (deparse(substitute(Function)) %in% c('mean', 'median', 'sd')) covRaster <- terra::app(covRaster[[covIndex]], fun = Function)
+    else covRaster <- terra::app(terra::app(covRaster[[covIndex]], fun = mean), fun = Function)
+
+    names(covRaster) <- worldClim
+
+    private$Covariates[[worldClim]] <- covRaster
+
+
+  }
+    else {
+
+      if (!inherits(Object, c('SpatRaster', 'Spatial', 'Raster'))) stop('Object needs to be either a SpatRaster, SpatialPixelsDataFrame or raster object.')
+
+      if (!inherits(Object, 'SpatRaster')) Object <- as(Object, 'SpatRaster')
+
+      Object <- terra::project(Object, private$Projection)
+
+      if (length(names(Object)) > 1) stop('Please provide each covariate into the workflow as their own object.')
+
+      #Check this for all classes
+      maskedDF <- terra::mask(Object, private$Area)
+
+      if (all(is.na(terra::values(maskedDF)))) stop('The covariate provided and the area specified do not match.')
+
+      private$Covariates[[names(Object)]] <- Object
+      #else get name of object and then save ti
+
+    }
+
+    }
+  ,
+
+#' @description Function to add a boundary around the study area. This function allows the user to either add their own boundary object, or obtain a country's boundary using \link[giscoR]{gisco_get_countries} from the \code{giscoR} package.
+#' @param Object A \code{sf} or \code{SpatialPolygons} object of the boundary surrounding the study area.
+#' @param countryName Name of the countries to obtain a boundary for. This argument will then use the \link[giscoR]{gisco_get_countries} function from the \code{giscoR} package to obtain a boundary.
+#' @param ... Additional arguments passed to \link[giscoR]{gisco_get_countries}.
+#'
+#' @import sf
+#' @examples
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' #Add boundary
+#' workflow$addArea(countryName = 'Sweden')
+
+  addArea = function(Object = NULL,
+                     countryName = NULL,
+                     ...) {
+
+    if (all(is.null(Object),
+            is.null(countryName))) stop ('One of object or countryName is required.')
+
+    if (!is.null(private$Area)) {
+
+      warning('Area already specified. Deleting all species occurance reccords added to the model.')
+
+      private$dataStructured <- list()
+      private$dataGBIF <- list()
+
+    }
+
+    if (!is.null(countryName)) {
+
+      private$Area <- obtainArea(name = countryName, projection =  private$Projection, ...)
+      private$Countries <- countryName
+
+      }
+    else {
+
+      if (!inherits(Object, 'Spatial') && !inherits(Object, 'sf')) stop('Object needs to be a sp or sf object.')
+      if (inherits(Object, 'Spatial')) Object <- as(Object, 'sf')
+
+      Object <- sf::st_transform(Object, as.character(private$Projection))
+
+      private$Area <- Object
+
+    }
+
+    if (!private$Quiet) message('Boundry object added successfully.')
+
+  }
+  ,
+
+#' @description Function to add a spatial cross validation method to the workflow.
+#' @param Method The spatial cross-validation methods to use in the workflow. May be at least one of \code{spatialBlock} or \code{Loo} (leave-one-out). See the \code{PointedSDMs} package for more details.
+#' @param blockOptions A list of options to specify the spatial block cross-validation. Must be a named list with arguments specified for: \code{k}, \code{rows_cols}, \code{plot}, \code{seed}. See \code{blockCV::cv_spatial} for more information.
+#'
+#' @import blockCV
+#' @examples
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' workflow$crossValidation(Method = 'Loo')
+
+  crossValidation = function(Method, blockOptions = list(k = 5, rows_cols = c(4,4), plot = FALSE, seed = NULL)) {
+
+    if (!all(Method %in% c('spatialBlock', 'Loo'))) stop('Output needs to be at least one of: spatialBlock, Loo.')
+
+    if ('spatialBlock' %in% Method) {
+
+
+     if (is.null(blockOptions$seed)) blockOptions$seed <- round(abs(rnorm(n = 1, mean = 100000, sd = 100000)))
+
+     if (is.null(blockOptions$k) || is.null(blockOptions$rows_cols)) stop('Please provide both k and rows_cols in blockOptions.')
+     if (is.null(blockOptions$plot)) blockOptions$plot <- FALSE
+
+     private$blockOptions <- blockOptions
+
+     if (blockOptions$plot) {
+
+     boundData <- vector(mode = 'list', length =  length(private$Species))
+     spatPlot <- vector(mode = 'list', length =  length(private$Species))
+     names(spatPlot) <- paste('Printing plot for',private$Species)
+
+
+       for (species in 1:length(private$Species)) {
+
+       spatData <- lapply(append(private$dataGBIF[[species]], private$dataStructured[[species]]), function(x) x$geometry)
+
+       boundData <- st_as_sf(do.call(c, spatData))
+
+
+       blocks <- R.devices::suppressGraphics(blockCV::cv_spatial(x = boundData,
+                                                                 k = blockOptions$k, rows_cols = blockOptions$rows_cols,
+                                                                 progress = FALSE, seed = blockOptions$seed,
+                                                                 report = FALSE, plot = TRUE))
+
+       boundData$.__block_index <- blocks$folds_ids
+
+       blocksPlot <- blockCV::cv_plot(blocks)
+
+        spatPlot[[species]] <-  ggplot() +
+         geom_sf(data = blocksPlot$data, aes(col = as.character(folds)), size = 2) +
+         geom_sf_text(data = blocksPlot$data, aes(label = folds)) +
+         geom_sf(data = sf::st_boundary(private$Area)) +
+         geom_sf(data = boundData, aes(col = as.character(.__block_index))) +
+         ggtitle(paste('Cross-validation blocking for', private$Species[species])) +
+         guides(col=guide_legend(title="Folds"))
+
+
+
+       }
+
+
+     return(spatPlot)
+
+
+     }
+
+
+    }
+
+    private$CVMethod <- Method
+
+  }
+  ,
+
+#' @description Function to specify model options for the \code{INLA} and \code{PointedSDMs} parts of the model.
+#' @param ISDM Arguments to specify in \link[PointedSDMs]{intModel} from the \code{PointedSDMs} function. This argument needs to be a named list of the following options: \code{pointCovariates}, \code{pointsIntercept}, \code{pointsSpatial} or \code{copyModel}. See \code{?intModel} for more details.
+#' @param INLA Options to specify in \link[INLA]{inla} from the \code{INLA} function. See \code{?inla} for more details.
+#' @examples
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' workflow$modelOptions(INLA = list(control.inla=list(int.strategy = 'eb')),
+#'                       ISDM = list(pointsIntercept = FALSE))
+  modelOptions = function(ISDM = list(),
+                          INLA = list()) {
+
+    if (!is.list(ISDM)) stop('ISDM needs to be a list of arguments to specify the model.')
+
+    if (any(!names(ISDM) %in% c('pointCovariates', 'pointsIntercept', #Remove pointCovariates perhaps?
+                                'pointsSpatial', 'copyModel'))) stop('ISDM needs to be a named list with at least one of the following options: "pointCovariates", "pointsIntercept", "pointsSpatial" or "copyModel".')
+
+    if (!is.list(INLA)) stop('INLA needs to be a list of INLA arguments to specify the model.')
+
+    if (length(ISDM) > 0) private$optionsISDM <- ISDM
+    if (length(INLA) > 0) private$optionsINLA <- INLA
+
+  }
+  ,
+
+#' @description Function to specify pc priors for the shared random field in the model. See \code{?INLA::inla.spde2.pcmatern} for more details.
+#' @param ... Arguments passed on to \link[INLA]{inla.spde2.pcmatern}.
+#' @examples
+#' \dontrun{
+#' if (requireNamespace('INLA')) {
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#'
+#' #Add boundary
+#' workflow$addArea(countryName = 'Sweden')
+#' workflow$addMesh(cutoff = 20000,
+#'                  max.edge=c(60000, 80000),
+#'                  offset= 100000)
+#' workflow$specifySpatial(prior.range = c(200000, 0.05),
+#'                         prior.sigma = c(5, 0.1))
+#' }
+#' }
+  specifySpatial = function(...) {
+
+
+    anyIn <- list(...)
+    if (length(anyIn) == 0) stop('Please provide arguments to customize the INLA spde object using the ... argument.')
+
+    if (is.null(private$Mesh)) stop('Please add an INLA mesh before customizing the spatial fields. This may be done with the `.$addMesh` function.')
+
+    private$sharedField <- INLA::inla.spde2.pcmatern(mesh = private$Mesh, ...)
+
+  }
+  ,
+
+#' @description Function to add bias fields to the model.
+#' @param datasetName Name of the dataset to add a bias field to.
+#' @param ... Additional arguments passed on to \link[INLA]{inla.spde2.pcmatern} to customize the priors for the pc matern for the bias fields.
+#' @examples
+#' \dontrun{
+#' if(requireNamespace('INLA')) {
+#'
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#' workflow$addArea(countryName = 'Sweden')
+#'
+#' workflow$addGBIF(datasetName = 'exampleGBIF',
+#'                  datasetType = 'PA',
+#'                  limit = 10000,
+#'                  coordinateUncertaintyInMeters = '0,50')
+#' workflow$biasFields(datasetName = 'exampleGBIF')
+#' }
+#' }
+
+  biasFields = function(datasetName, ...) {
+
+    if (!all(datasetName %in% private$datasetName)) stop('Dataset specified for bias field not included in the workflow.')
+
+    private$biasNames <- unique(c(datasetName, private$biasNames))
+
+    if (length(list(...)) > 0) {
+
+      if (is.null(private$Mesh)) stop('Please add an INLA mesh before customizing the spatial fields. This may be done with the `.$addMesh` function.')
+
+      biasModels <- INLA::inla.spde2.pcmatern(mesh = private$Mesh, ...)
+
+      for (dataset in datasetName) {
+
+      private$biasFieldsSpecify[[dataset]] <- biasModels
+
 
       }
 
     }
-  }
-  else {
-    speciesName <- 'species'
-    responsePA <- 'responsePA'
-    trialsPA <- 'trialsPA'
-    responseCount <- 'responseCount'
+
 
   }
+  ,
 
-  if (is.null(mesh)) {
-    if (is.null(meshParameters)) stop('meshParameters cannot be NULL if mesh is NULL.')
-     if (any(!c("cutoff", "max.edge", "offset") %in% names(meshParameters))) stop("'cutoff', 'max.edge' and 'offset' need to be in meshParameters")
-    boundary <- as(boundary, 'SpatialPolygons')
-    message('Making inla.mesh object:')
-    mesh <- INLA::inla.mesh.2d(boundary = INLA::inla.sp2segment(boundary),
-                           cutoff = meshParameters$cutoff,
-                           max.edge = meshParameters$max.edge,
-                           offset = meshParameters$offset)
-    mesh$proj4string <- projection
-    mesh$crs <- projection
+#' @description Function to specify the workflow output from the model. This argument must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Maps'} and \code{'Cross-validation'}.
+#' @param Output The names of the outputs to give in the workflow. Must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Maps'} and \code{'Cross-validation'}.
+#' @examples
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#' workflow$workflowOutput('Predictions')
+  workflowOutput = function(Output) {
 
-    if (return == 'mesh') {
+  if (!all(Output %in% c('Model',
+                         'Predictions',
+                         'Maps',
+                         'Cross-validation'))) stop('Output needs to be at least one of: Model, Predictions, Maps or Cross-validation.')
 
-      return(mesh)
-
-    }
-
-  }
-  else {
-    ###TODO
-    ##Make BBOX from mesh object
+    private$Output <- Output
 
   }
+  ,
 
-  if (return == 'mesh plot') {
+#' @description Obtain metadata from the workflow.
+#' @param Number Print the number of observations per dataset. Defaults to \code{TRUE}.
+#' @param Citations Print the citations for the GBIF obtained datasets. Defaults to \code{TRUE}.
+#' @examples
+#' \dontrun{
+#' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+#'                           Projection = '+proj=longlat +ellps=WGS84',
+#'                           Save = FALSE,
+#'                           saveOptions = list(projectName = 'example'))
+#' workflow$addArea(countryName = 'Sweden')
+#'
+#' workflow$addGBIF(datasetName = 'exampleGBIF',
+#'                  datasetType = 'PA',
+#'                  limit = 10000,
+#'                  coordinateUncertaintyInMeters = '0,50')
+#' workflow$obtainMeta()
+#' }
 
-    meshPlot <- ggplot() +
-      gg(mesh) +
-      ggtitle('Plot of mesh') +
-      xlab('Longitude') +
-      ylab('Latitude') +
-      theme(plot.title = element_text(hjust = 0.5))
-    return(meshPlot)
+obtainMeta = function(Number = TRUE,
+                      Citations = TRUE) {
 
-  }
-  ## Should this be an optional argument???
-  if (!missing(speciesNames)){
+  cat('Metadata for the workflow:\n')
 
-  message('Obtaining GBIF species data:')
-##Mighht be worth doing this as a R6 + adding argument related to occuranceStatus and individualCount (note NA)
-  if (is.null(date)) {
+  cat('Time started:\n'); cat(as.character(private$timeStarted), '\n')
 
-    species_data <- spocc::occ(query = speciesNames,
-                               limit = limit,
-                               gbifopts = gbifOpts,
-                               geometry = boundary@bbox,
-                               has_coords = TRUE)
+  if (Number) {
 
-  }
-  else  species_data <- spocc::occ(query = speciesNames,
-                             limit = limit,
-                             gbifopts = gbifOpts,
-                             geometry = boundary@bbox,
-                             has_coords = TRUE,
-                             date = date)
+  cat('Number of observations in dataset:\n')
 
-  species_data <- do.call(dplyr::bind_rows,
-                          species_data$gbif$data)
-  ##Why am I getting species other than the ones from speciesNames????
-  ##Or think of nice ways to standardize all species names::
-  ##Somehow even relate it back to structuredData
-  ##But is tough since species in structuredData does not
-  ##Necessarily need to be in the PO data and vice versa ...
-  species_data$species <- gsub(' ', '_', species_data$species)
+  for (species in sub(" ", "_", private$Species)) {
 
-  all_data <- sp::SpatialPointsDataFrame(coords = cbind(species_data$longitude, species_data$latitude),
-                                         data = data.frame(species = species_data$species),
-                                         proj4string = projection)
-  ##Correct??
-  colnames(all_data@coords) <- c('longitude', 'latitude')
+    cat(paste0(species, ':'),'\n')
 
-  ##Select species only within boundary???
-  ##Why are species leaking through the bbox??
-  all_data <- all_data[boundary, ]
-  all_data <- list(dataGBIF = all_data)
+    if (length(private$dataGBIF) > 0) speciesNumGBIF <- unlist(lapply(workflow$.__enclos_env__$private$dataGBIF[[species]], nrow))
+    else speciesNumGBIF <- NULL
 
-  ###Things to do::
-  ## so structured data is a list of sp objects -- possibly causing issues
-  ## Create a list; all data with one element; all_data
-  ## Then for loop all elements from structured data::
-  ## Note that names may not be ket as is?
-  ######
-  if (!is.null(structuredData)) {
+    if (length(private$dataStructured) > 0) speciesNumStructured <- unlist(lapply(workflow$.__enclos_env__$private$dataGBIF[[species]], nrow))
+    else speciesNumStructured <- NULL
 
-    for (dataset in 2:(length(structuredData) + 1)) {
+    speciesNum <- c(speciesNumGBIF, speciesNumStructured)
 
-      all_data[[dataset]] <- structuredData[[(dataset - 1)]]
-      names(all_data)[[dataset]] <- names(structuredData)[[(dataset - 1)]]
-
-    }
+    numData <- data.frame(Dataset = names(speciesNum),
+                          Place = rep('-', length(speciesNum)),
+                          Number = speciesNum)
+    colnames(numData) <- c('Dataset', '', '#')
+    print.data.frame(numData, row.names = FALSE, right = TRUE)
+    cat('Sum:');cat('',sum(speciesNum))
+    cat('\n\n')
 
   }
 
   }
-  else all_data <- structuredData
-
-  if (return == 'species') return(all_data)
-
-  if (return == 'species plot') {
-
-    data_to_plot <- lapply(all_data, function(x) x[, 'species'])
-    data_to_plot <- do.call(sp::rbind.SpatialPointsDataFrame, data_to_plot)
-    species <- 'species'
-    plot <- ggplot() + gg(boundary)  + gg(data_to_plot, aes(colour = species))
-    return(plot)
-  }
 
 
-  if (!is.null(worldclimCovariates)) {
-    ##Some reason worldclim includes half of Norway in the one lat and the other half in the other lat when res = 0.5
-    ##Need to glue the two raster files together
-    message('Obtaining worldclim covariates:')
-    bioclimS <- raster::getData("worldclim", var = "bio", res = res, lon = 5, lat = 60)
-    bioclimN <- raster::getData("worldclim", var = "bio", res = res, lon = 5, lat = 70)
+  if (Citations) {
 
-    r1 <- raster::crop(bioclimN, bbox(boundary))
-    r2 <- raster::crop(bioclimS, bbox(boundary))
+  if (length(private$dataGBIF) == 0) stop('Please call .$addGBIF() to obtain data from GBIF.')
 
-    mergedNO <- raster::merge(r1, r2)
-    spatialCovariates <- raster::mask(mergedNO, boundary)
+  cat('Citations for GBIF data:\n')
+  datasetKeys <- c(na.omit(unique(unlist(lapply(unlist(private$dataGBIF, recursive = FALSE), function(x) x$datasetKey)))))
 
-    #spatialCovariates <- subset(spatialCovariates,worldclimIndex[,'index'][worldclimIndex['variable'] == worldclimCovariates])
-    spatialCovariates <- as(spatialCovariates, 'SpatialPixelsDataFrame')
-    spatialCovariates <- spatialCovariates[,worldclimIndex[,'index'][worldclimIndex['variable'] == worldclimCovariates]]
-    names(spatialCovariates) <- gsub(' ', '_', worldclimCovariates)
+  listKeys <- vector(mode = 'list', length = length(datasetKeys))
+  names(listKeys) <- datasetKeys
 
-  }
-  else
-    if (is.null(spatialCovariates) & is.null(worldclimCovariates)) spatialCovariates <- NULL
+  for (key in datasetKeys) listKeys[[key]] <- rgbif::gbif_citation(x = key)
 
-  ##Don't know why this needs to be a dataframe...
-  if (!is.null(spatialCovariates) & scale) spatialCovariates@data <- data.frame(scale(spatialCovariates@data))
-
-  message('Organizing the data:')
-
-
-  organized_data <- PointedSDMs::intModel(all_data, spatialCovariates = spatialCovariates, Coordinates = c('longitude', 'latitude'),
-                                        Mesh = mesh, responseCounts = responseCount, responsePA = responsePA,
-                                        trialsPA = trialsPA, speciesName = 'species',
-                                        Projection = projection, ...)
-
-  if (!is.null(spdeModel)) {
-
-    if (!is.null(organized_data$.__enclos_env__$private$Spatial[['sharedField']])) organized_data$spatialFields$sharedField[['sharedField']] <- spdeModel
-    else stop('spdeModel provided but no shared spatial effect included in the model.')
-  }
-
-  if (biasField) organized_model$addBias(datasetName = dataGBIF, biasField = biasModel)
-  ##Print model components here? new argument called verbose or something?
-
-  message('Running model:')
-
-  #spatialModel <- PointedSDMs::bru_sdm(data = organized_data, spatialcovariates = spatialCovariates,
-  #                                    sharedspatial = TRUE, specieseffects = TRUE, spdemodel = spdeModel,
-  #                                    options = options)
-
-  spatialModel <- PointedSDMs::fitISDM(organized_data, options = options)
-
-  if (return == 'model') {
-
-    return(spatialModel)
+  print(listKeys)
 
   }
 
-  ##Then predict
-  message('Predicting model:')
-
-  #covariateNames <- ifelse(is.null(spatialCovariates), NULL, names(spatialCovariates))
-  mesh$crs <- projection
-  ##Try calling predict.bru_sdm manually???
-  ##Need to add something -- if # species == 1 then predict only spatial field and not species = TRUE?
-  modelPredict <- predict(spatialModel, mesh = mesh, mask = boundary,
-                                               spatial = TRUE, intercepts = TRUE,
-                                               covariates = spatialModel[['spatCovs']][['name']],
-                                               fun = '')
-
-  if (return == 'predictions') {
-
-    return(modelPredict)
-
-  }
-
-  message('Plotting predictions')
-  predictPlot <- plot(modelPredict, whattoplot = 'mean',
-                      plot = FALSE)
-
-  predictPlot
 
 }
+  ))
+
+species_model$set('private', 'Area', NULL)
+species_model$set('private', 'Covariates', NULL)
+species_model$set('private', 'Mesh', NULL)
+species_model$set('private', 'optionsISDM', list())
+species_model$set('private', 'optionsINLA', list())
+species_model$set('private', 'CVMethod', NULL)
+species_model$set('private', 'Species', NULL)
+species_model$set('private', 'Countries', NULL)
+species_model$set('private', 'Output', NULL)
+species_model$set('private', 'Projection', NULL)
+species_model$set('private', 'dataStructured', list())
+species_model$set('private', 'dataGBIF', list())
+species_model$set('private', 'Quiet', TRUE)
+species_model$set('private', 'Directory', getwd())
+species_model$set('private', 'Project', NULL)
+species_model$set('private', 'sharedField', NULL)
+species_model$set('private', 'timeStarted', NULL)
+#species_model$set('private', 'datasetFieldsSpecify', list())
+species_model$set('private', 'biasFieldsSpecify', list())
+species_model$set('private', 'datasetName', NULL)
+species_model$set('private', 'Save', TRUE)
+species_model$set('private', 'biasNames', NULL)
+species_model$set('private', 'blockOptions', list())
+species_model$set('private', 'classGBIF', list())
+
+
+
+##Change all the variable names for the GBIF data too
+species_model$set('private', 'Coordinates', c('Longitude', 'Latitude'))
+species_model$set('private', 'responseCounts', 'individualCount')
+species_model$set('private', 'responsePA', 'occurrenceStatus')
+species_model$set('private', 'trialsName', 'numTrials')
+species_model$set('private', 'speciesName', 'speciesName')
 

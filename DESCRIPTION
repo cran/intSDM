@@ -5,7 +5,7 @@ Description: Integration of disparate datasets is needed in order to make effici
    Data integration is a powerful modeling framework which allows us to combine these datasets together into a single model, yet retain the strengths of each individual dataset.
    We therefore introduce the package, 'intSDM': an R package designed to help ecologists develop a reproducible workflow of integrated species distribution models, using data both provided from the user as well as data obtained freely online.
    An introduction to data integration methods is discussed in Issac, Jarzyna, Keil, Dambly, Boersch-Supan, Browning, Freeman, Golding, Guillera-Arroita, Henrys, Jarvis, Lahoz-Monfort, Pagel, Pescott, Schmucki, Simmonds and O’Hara (2020) <doi:10.1016/j.tree.2019.08.006>.
-Version: 1.0.5
+Version: 2.0.0
 Authors@R: 
     c(person(given = "Philip",
            family = "Mostert",
@@ -27,21 +27,19 @@ Authors@R:
              family = "Martin",
              role = c("aut"),
              email = "ellen.c.martin@ntnu.no"))
-Depends: R (>= 3.5), inlabru (>= 2.3.1), ggplot2, sp (>= 1.4-5), stats,
-        PointedSDMs, methods
-Imports: dplyr, geodata, terra, spocc, raster, maps
-Suggests: fields, RANN, INLA (>= 21.08.31), rgeos, viridis, ggpolypath,
-        ggmap, spatstat, RColorBrewer, knitr, rmarkdown, testthat (>=
-        3.0.0), sf, covr
+Depends: R (>= 3.5), ggplot2, terra, sf, stats, PointedSDMs, methods
+Imports: R6, geodata, inlabru (>= 2.3.1), giscoR, blockCV, rgbif,
+        tidyterra
+Suggests: viridis, INLA (>= 21.08.31), ggpolypath, R.utils, lwgeom,
+        spatstat, RColorBrewer, knitr, rmarkdown, testthat (>= 3.0.0)
 Additional_repositories: https://inla.r-inla-download.org/R/testing/
 License: GPL (>= 3)
 Encoding: UTF-8
-LazyData: true
 RoxygenNote: 7.2.3
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2023-02-17 07:32:20 UTC; philism
+Packaged: 2023-08-17 10:46:50 UTC; philism
 Author: Philip Mostert [aut, cre],
   Angeline Bruls [aut],
   Ragnhild {Bjørkås} [aut],
@@ -49,4 +47,4 @@ Author: Philip Mostert [aut, cre],
   Ellen Martin [aut]
 Maintainer: Philip Mostert <philip.s.mostert@ntnu.no>
 Repository: CRAN
-Date/Publication: 2023-02-17 09:00:02 UTC
+Date/Publication: 2023-08-17 12:32:53 UTC
