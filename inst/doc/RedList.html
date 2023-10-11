@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 
-<meta name="date" content="2023-08-17" />
+<meta name="date" content="2023-10-11" />
 
 <title>intSDM: R package to produce species distribution models in a reproducible framework</title>
 
@@ -361,7 +361,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">intSDM: R package to produce species
 distribution models in a reproducible framework</h1>
-<h4 class="date">2023-08-17</h4>
+<h4 class="date">2023-10-11</h4>
 
 
 
@@ -543,14 +543,6 @@ as a result we treat it as presence-only data.</p>
 <span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a></span>
 <span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>(<span class="at">Species =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 </div>
-<div id="metadata" class="section level3">
-<h3>Metadata</h3>
-<p>We can then view the metadata for the obtained occurrence records
-using the <code>.$obtainMeta()</code> function, which will give us the
-citation for the datasets used in this workflow.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">obtainMeta</span>()</span></code></pre></div>
-</div>
 <div id="adding-covariate-data" class="section level3">
 <h3>Adding covariate data</h3>
 <p>Covariate data may be added to the model using
@@ -560,9 +552,17 @@ using the <em>worldClim argument</em>. This in turn uses the <em>geodata
 obtain <em>spatRaster</em> objects of the covariates cropped around the
 study domain. Other covariate layers may be added using the
 <em>Object</em> argument.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addCovariates</span>(<span class="at">worldClim =</span> <span class="st">&#39;tavg&#39;</span>, <span class="at">res =</span> <span class="dv">5</span>, <span class="at">Function =</span> scale)</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>(<span class="at">Covariates =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+</div>
+<div id="metadata" class="section level3">
+<h3>Metadata</h3>
+<p>We can then view the metadata for the obtained occurrence records
+using the <code>.$obtainMeta()</code> function, which will give us the
+citation for the datasets used in this workflow.</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addCovariates</span>(<span class="at">worldClim =</span> <span class="st">&#39;tavg&#39;</span>, <span class="at">res =</span> <span class="dv">5</span>, <span class="at">Function =</span> scale)</span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>(<span class="at">Covariates =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">obtainMeta</span>()</span></code></pre></div>
 </div>
 <div id="creating-an-inla.mesh-object" class="section level3">
 <h3>Creating an <em>inla.mesh</em> object</h3>
@@ -572,7 +572,7 @@ fields. The <code>.$addMesh()</code> function’s argument <em>…</em> uses
 <code>INLA::inla.mesh.2d()</code> to create this object.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a></span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addMesh</span>(<span class="at">cutoff =</span> <span class="dv">20000</span>,</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                 <span class="at">max.edge=</span><span class="fu">c</span>(<span class="dv">60000</span>, <span class="dv">80000</span>),</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                 <span class="at">max.edge =</span> <span class="fu">c</span>(<span class="dv">60000</span>, <span class="dv">80000</span>),</span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>                 <span class="at">offset=</span> <span class="dv">100000</span>)</span>
 <span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
 <span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>(<span class="at">Mesh =</span> <span class="cn">TRUE</span>)</span></code></pre></div>

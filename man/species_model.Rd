@@ -463,7 +463,6 @@ Function to add species occurrence records from GBIF (using the \code{rgbif} pac
   datasetType = "PO",
   responseCounts = "individualCount",
   responsePA = "occurrenceStatus",
-  assign2Global = FALSE,
   generateAbsences = FALSE,
   ...
 )}\if{html}{\out{</div>}}
@@ -481,8 +480,6 @@ Function to add species occurrence records from GBIF (using the \code{rgbif} pac
 \item{\code{responseCounts}}{Name of the response variable for the counts data. Defaults to the standard Darwin core value \code{individualCounts}.}
 
 \item{\code{responsePA}}{Name of the response variable for the PA data. Defaults to the standard Darwin core value \code{occurrenceStatus}.}
-
-\item{\code{assign2Global}}{Assign the dataset to the global environment. The object will be assigned to an object specified using the \code{datasetName} object.}
 
 \item{\code{generateAbsences}}{Generates absences for \code{'PA'} data. This is done by combining all the sampling locations for all the species, and creating an absence where a given species does not occur.}
 
@@ -649,7 +646,7 @@ Function to specify model options for the \code{INLA} and \code{PointedSDMs} par
 \describe{
 \item{\code{ISDM}}{Arguments to specify in \link[PointedSDMs]{intModel} from the \code{PointedSDMs} function. This argument needs to be a named list of the following options: \code{pointCovariates}, \code{pointsIntercept}, \code{pointsSpatial} or \code{copyModel}. See \code{?intModel} for more details.}
 
-\item{\code{INLA}}{Options to specify in \link[INLA]{inla} from the \code{INLA} function. See \code{?inla} for more details.}
+\item{\code{INLA}}{Options to specify in \link[INLA]{INLA} from the \code{inla} function. See \code{?inla} for more details.}
 }
 \if{html}{\out{</div>}}
 }

@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -54,21 +54,21 @@ knitr::opts_chunk$set(
 #  workflow$plot(Species = TRUE)
 #  
 
-## ----metadata-----------------------------------------------------------------
-#  
-#  workflow$obtainMeta()
-#  
-
 ## ----addCovariates, eval = FALSE----------------------------------------------
 #  
 #  workflow$addCovariates(worldClim = 'tavg', res = 5, Function = scale)
 #  workflow$plot(Covariates = TRUE)
 #  
 
+## ----metadata-----------------------------------------------------------------
+#  
+#  workflow$obtainMeta()
+#  
+
 ## ----INLA---------------------------------------------------------------------
 #  
 #  workflow$addMesh(cutoff = 20000,
-#                   max.edge=c(60000, 80000),
+#                   max.edge = c(60000, 80000),
 #                   offset= 100000)
 #  
 #  workflow$plot(Mesh = TRUE)

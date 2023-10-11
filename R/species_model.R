@@ -165,10 +165,13 @@ species_model <- R6::R6Class(classname = 'species_model', public = list(
         namesspeData <- names(speData)
         namesTimes <- rep(namesspeData, times = unlist(lapply(speData, length)))
 
-        spatData[[species]] <- sf::st_as_sf(do.call(c, speData))
+        if (length(speData) > 0) {
 
+        spatData[[species]] <- sf::st_as_sf(do.call(c, speData))
         spatData[[species]]$.__species_index_var <- species
         spatData[[species]]$.__names_index_var <- namesTimes
+
+         }
 
       }
 
@@ -200,7 +203,7 @@ species_model <- R6::R6Class(classname = 'species_model', public = list(
                            boundaryComponent +
                            meshComponent +
                            speciesComponent +
-                           guidesComponent
+                           guidesComponent + ggtitle(cov)
 
 
 
@@ -451,7 +454,7 @@ species_model <- R6::R6Class(classname = 'species_model', public = list(
 #' @param datasetType The data type of the dataset. Defaults to \code{PO}, but may also be \code{PA} or \code{Counts}.
 #' @param responseCounts Name of the response variable for the counts data. Defaults to the standard Darwin core value \code{individualCounts}.
 #' @param responsePA Name of the response variable for the PA data. Defaults to the standard Darwin core value \code{occurrenceStatus}.
-#' @param assign2Global Assign the dataset to the global environment. The object will be assigned to an object specified using the \code{datasetName} object.
+#' @param removeDuplicates Argument used to remove duplicate observations for a species across datasets. May take a long time if there are many observations obtained across multiple datasets. Defaults to \code{FALSE}.
 #' @param generateAbsences Generates absences for \code{'PA'} data. This is done by combining all the sampling locations for all the species, and creating an absence where a given species does not occur.
 #' @param ... Additional arguments to specify the \link[rgbif]{occ_data} function from \code{rgbif}. See \code{?occ_data} for more details.
 #' @examples
@@ -469,9 +472,8 @@ species_model <- R6::R6Class(classname = 'species_model', public = list(
 #' }
 
 addGBIF = function(Species = 'All', datasetName = NULL,
-                   datasetType = 'PO',
-                   responseCounts = 'individualCount', responsePA = 'occurrenceStatus',
-                   assign2Global = FALSE,
+                   datasetType = 'PO', responseCounts = 'individualCount',
+                   responsePA = 'occurrenceStatus', removeDuplicates = FALSE,
                    generateAbsences = FALSE, ...) {
 
   if (is.null(private$Area)) stop('An area needs to be provided before adding species. This may be done with the `.$addArea` function.')
@@ -509,6 +511,8 @@ addGBIF = function(Species = 'All', datasetName = NULL,
                             datasettype = datasetType,
                             ...)
 
+  if (removeDuplicates) {
+
   if (length(private$dataGBIF[[sub(" ", '_', speciesName)]]) > 0) {
 
     anySame <- st_equals_exact(do.call(c, lapply(private$dataGBIF[[sub(" ", '_', speciesName)]], function(x) st_geometry(x))),
@@ -529,8 +533,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
 
   }
 
-
-  if (!assign2Global) {
+    }
 
   if (nrow(GBIFspecies) == 0) warning('All species observations were removed due to duplicates')
   else {
@@ -539,7 +542,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
     private$classGBIF[[sub(" ", '_', speciesName)]][[datasetName]] <- datasetType
 
   }
-  } else datasetName <<- private$dataGBIF[[speciesName]][[datasetName]]#assign(datasetName,  private$dataGBIF[[speciesName]][[datasetName]], envir = globalenv())
+
 
   }
 
@@ -621,7 +624,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
     if (!dir.exists(covDirectory)) covDirectory <- getwd()#dir.create(covDirectory)
     if (!private$Quiet) message(paste('Saved covariate objects may be found in', covDirectory))
 
-    if (is.null(private$Countries)) stop('Please specify a country first before obtaining a covariate layer. This may be done using either startWorkflow or through `.$addArea`.')
+    #if (is.null(private$Countries)) stop('Please specify a country first before obtaining a covariate layer. This may be done using either startWorkflow or through `.$addArea`.')
 
     covRaster <- obtainCovariate(covariates = worldClim,
                                  res = res,
@@ -647,15 +650,19 @@ addGBIF = function(Species = 'All', datasetName = NULL,
 
       Object <- terra::project(Object, private$Projection)
 
-      if (length(names(Object)) > 1) stop('Please provide each covariate into the workflow as their own object.')
+      #if (length(names(Object)) > 1) stop('Please provide each covariate into the workflow as their own object.')
+
+      for (cov in names(Object)) {
 
       #Check this for all classes
-      maskedDF <- terra::mask(Object, private$Area)
+      maskedDF <- terra::mask(Object[cov], private$Area)
 
       if (all(is.na(terra::values(maskedDF)))) stop('The covariate provided and the area specified do not match.')
 
-      private$Covariates[[names(Object)]] <- Object
-      #else get name of object and then save ti
+      private$Covariates[[cov]] <- Object[cov]
+
+}
+      #else get name of object and then save it
 
     }
 
@@ -793,7 +800,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
 
 #' @description Function to specify model options for the \code{INLA} and \code{PointedSDMs} parts of the model.
 #' @param ISDM Arguments to specify in \link[PointedSDMs]{intModel} from the \code{PointedSDMs} function. This argument needs to be a named list of the following options: \code{pointCovariates}, \code{pointsIntercept}, \code{pointsSpatial} or \code{copyModel}. See \code{?intModel} for more details.
-#' @param INLA Options to specify in \link[INLA]{inla} from the \code{INLA} function. See \code{?inla} for more details.
+#' @param INLA Options to specify in \link[INLA]{INLA} from the \code{inla} function. See \code{?inla} for more details.
 #' @examples
 #' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
 #'                           Projection = '+proj=longlat +ellps=WGS84',
@@ -896,8 +903,8 @@ addGBIF = function(Species = 'All', datasetName = NULL,
   }
   ,
 
-#' @description Function to specify the workflow output from the model. This argument must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Maps'} and \code{'Cross-validation'}.
-#' @param Output The names of the outputs to give in the workflow. Must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Maps'} and \code{'Cross-validation'}.
+#' @description Function to specify the workflow output from the model. This argument must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Richness'}, \code{'Maps'} and \code{'Cross-validation'}.
+#' @param Output The names of the outputs to give in the workflow. Must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Richness'}, \code{'Maps'} and \code{'Cross-validation'}.
 #' @examples
 #' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
 #'                           Projection = '+proj=longlat +ellps=WGS84',
@@ -909,6 +916,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
   if (!all(Output %in% c('Model',
                          'Predictions',
                          'Maps',
+                         'Richness',
                          'Cross-validation'))) stop('Output needs to be at least one of: Model, Predictions, Maps or Cross-validation.')
 
     private$Output <- Output
@@ -971,6 +979,15 @@ obtainMeta = function(Number = TRUE,
 
 
   if (Citations) {
+
+  if (any(names(private$Covariates) %in% c("tavg", "tmin", "tmax",
+                                            "prec", "bio", "bioc",
+                                            "elev", "wind", "vapr", "srad"))) {
+
+    cat('Citation for WorldClim Data:\n')
+    cat('Fick, S.E. and R.J. Hijmans, 2017. WorldClim 2: new 1km spatial resolution climate surfaces for global land areas. \nInternational Journal of Climatology 37 (12): 4302-4315.\n\n')
+
+  }
 
   if (length(private$dataGBIF) == 0) stop('Please call .$addGBIF() to obtain data from GBIF.')
 
