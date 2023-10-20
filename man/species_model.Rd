@@ -23,6 +23,7 @@ workflow$print()
 ## Method `species_model$plot`
 ## ------------------------------------------------
 
+\dontrun{
 workflow <- startWorkflow(Species = 'Fraxinus excelsior',
                           Projection = '+proj=longlat +ellps=WGS84',
                           Save = FALSE,
@@ -31,11 +32,13 @@ workflow <- startWorkflow(Species = 'Fraxinus excelsior',
 #Add boundary
 workflow$addArea(countryName = 'Germany')
 workflow$plot(Boundary = TRUE)
+}
 
 ## ------------------------------------------------
 ## Method `species_model$addStructured`
 ## ------------------------------------------------
 
+\dontrun{
 workflow <- startWorkflow(Species = 'Fraxinus excelsior',
                           Projection = '+proj=longlat +ellps=WGS84',
                           Save = FALSE,
@@ -52,6 +55,7 @@ speciesData <- data.frame(X = runif(1000, 12, 24),
 workflow$addStructured(dataStructured = speciesData, datasetType = 'PA',
                        datasetName = 'xx', responseName = 'Response',
                        speciesName = 'Name', coordinateNames = c('X', 'Y'))
+                       }
 
 ## ------------------------------------------------
 ## Method `species_model$addMesh`
@@ -113,6 +117,7 @@ workflow$addCovariates(worldClim = 'tavg', res = '10')
 ## Method `species_model$addArea`
 ## ------------------------------------------------
 
+\dontrun{
 workflow <- startWorkflow(Species = 'Fraxinus excelsior',
                           Projection = '+proj=longlat +ellps=WGS84',
                           Save = FALSE,
@@ -120,6 +125,7 @@ workflow <- startWorkflow(Species = 'Fraxinus excelsior',
 
 #Add boundary
 workflow$addArea(countryName = 'Sweden')
+}
 
 ## ------------------------------------------------
 ## Method `species_model$crossValidation`
@@ -333,7 +339,8 @@ A ggplot object.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+\preformatted{\dontrun{
+workflow <- startWorkflow(Species = 'Fraxinus excelsior',
                           Projection = '+proj=longlat +ellps=WGS84',
                           Save = FALSE,
                           saveOptions = list(projectName = 'example'))
@@ -341,6 +348,7 @@ A ggplot object.
 #Add boundary
 workflow$addArea(countryName = 'Germany')
 workflow$plot(Boundary = TRUE)
+}
 }
 \if{html}{\out{</div>}}
 
@@ -388,7 +396,8 @@ The function is used to convert structured datasets into a framework which is us
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+\preformatted{\dontrun{
+workflow <- startWorkflow(Species = 'Fraxinus excelsior',
                           Projection = '+proj=longlat +ellps=WGS84',
                           Save = FALSE,
                           saveOptions = list(projectName = 'example'))
@@ -404,6 +413,7 @@ speciesData <- data.frame(X = runif(1000, 12, 24),
 workflow$addStructured(dataStructured = speciesData, datasetType = 'PA',
                        datasetName = 'xx', responseName = 'Response',
                        speciesName = 'Name', coordinateNames = c('X', 'Y'))
+                       }
 }
 \if{html}{\out{</div>}}
 
@@ -463,6 +473,7 @@ Function to add species occurrence records from GBIF (using the \code{rgbif} pac
   datasetType = "PO",
   responseCounts = "individualCount",
   responsePA = "occurrenceStatus",
+  removeDuplicates = FALSE,
   generateAbsences = FALSE,
   ...
 )}\if{html}{\out{</div>}}
@@ -480,6 +491,8 @@ Function to add species occurrence records from GBIF (using the \code{rgbif} pac
 \item{\code{responseCounts}}{Name of the response variable for the counts data. Defaults to the standard Darwin core value \code{individualCounts}.}
 
 \item{\code{responsePA}}{Name of the response variable for the PA data. Defaults to the standard Darwin core value \code{occurrenceStatus}.}
+
+\item{\code{removeDuplicates}}{Argument used to remove duplicate observations for a species across datasets. May take a long time if there are many observations obtained across multiple datasets. Defaults to \code{FALSE}.}
 
 \item{\code{generateAbsences}}{Generates absences for \code{'PA'} data. This is done by combining all the sampling locations for all the species, and creating an absence where a given species does not occur.}
 
@@ -584,13 +597,15 @@ Function to add a boundary around the study area. This function allows the user 
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{workflow <- startWorkflow(Species = 'Fraxinus excelsior',
+\preformatted{\dontrun{
+workflow <- startWorkflow(Species = 'Fraxinus excelsior',
                           Projection = '+proj=longlat +ellps=WGS84',
                           Save = FALSE,
                           saveOptions = list(projectName = 'example'))
 
 #Add boundary
 workflow$addArea(countryName = 'Sweden')
+}
 }
 \if{html}{\out{</div>}}
 
@@ -751,7 +766,7 @@ workflow$biasFields(datasetName = 'exampleGBIF')
 \if{html}{\out{<a id="method-species_model-workflowOutput"></a>}}
 \if{latex}{\out{\hypertarget{method-species_model-workflowOutput}{}}}
 \subsection{Method \code{workflowOutput()}}{
-Function to specify the workflow output from the model. This argument must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Maps'} and \code{'Cross-validation'}.
+Function to specify the workflow output from the model. This argument must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Richness'}, \code{'Maps'} and \code{'Cross-validation'}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{species_model$workflowOutput(Output)}\if{html}{\out{</div>}}
 }
@@ -759,7 +774,7 @@ Function to specify the workflow output from the model. This argument must be at
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{Output}}{The names of the outputs to give in the workflow. Must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Maps'} and \code{'Cross-validation'}.}
+\item{\code{Output}}{The names of the outputs to give in the workflow. Must be at least one of: \code{'Model'}, \code{'Prediction'}, \code{'Richness'}, \code{'Maps'} and \code{'Cross-validation'}.}
 }
 \if{html}{\out{</div>}}
 }

@@ -5,7 +5,7 @@ Description: Integration of disparate datasets is needed in order to make effici
    Data integration is a powerful modeling framework which allows us to combine these datasets together into a single model, yet retain the strengths of each individual dataset.
    We therefore introduce the package, 'intSDM': an R package designed to help ecologists develop a reproducible workflow of integrated species distribution models, using data both provided from the user as well as data obtained freely online.
    An introduction to data integration methods is discussed in Issac, Jarzyna, Keil, Dambly, Boersch-Supan, Browning, Freeman, Golding, Guillera-Arroita, Henrys, Jarvis, Lahoz-Monfort, Pagel, Pescott, Schmucki, Simmonds and O’Hara (2020) <doi:10.1016/j.tree.2019.08.006>.
-Version: 2.0.1
+Version: 2.0.2
 Authors@R: 
     c(person(given = "Philip",
            family = "Mostert",
@@ -39,7 +39,7 @@ RoxygenNote: 7.2.3
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2023-10-11 05:43:33 UTC; philism
+Packaged: 2023-10-20 07:58:49 UTC; philism
 Author: Philip Mostert [aut, cre],
   Angeline Bruls [aut],
   Ragnhild {Bjørkås} [aut],
@@ -47,4 +47,4 @@ Author: Philip Mostert [aut, cre],
   Ellen Martin [aut]
 Maintainer: Philip Mostert <philip.s.mostert@ntnu.no>
 Repository: CRAN
-Date/Publication: 2023-10-11 07:40:02 UTC
+Date/Publication: 2023-10-20 09:00:04 UTC

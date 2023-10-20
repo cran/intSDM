@@ -7,7 +7,14 @@ testthat::test_that('obtainGBIF can correctly obtain observations of species in 
 
   proj <- '+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
 
-  map <- obtainArea(names = c('Norway'), projection = proj)
+  map <- try(obtainArea(names = c('Norway'), projection = proj))
+
+  if (inherits(map, 'try-error')) {
+
+    map <- st_as_sf(geodata::world(path = tempdir()))
+    map <- map[map$NAME_0 == 'Norway',]
+    map <- st_transform(map, proj)
+  }
 
   species <- obtainGBIF(query = speciesIn,
                         datasettype = 'PO', country = 'NO',

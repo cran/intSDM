@@ -5,11 +5,26 @@ testthat::test_that('sdmWorkflow produces the correct output given different Wor
   ##Create different workflows here:
    #1. Just GBIF data
   proj <- '+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'
+  countries <- st_as_sf(geodata::world(path = tempdir()))
+  countries <- countries[countries$NAME_0 %in% c('Norway'),]
+  countries <- st_transform(countries, proj)
   species <- c('Fraxinus excelsior')
-  workflow <- startWorkflow(Species = species,
+  workflow <- try(startWorkflow(Species = species,
                             saveOptions = list(projectName = 'testthatexample', projectDirectory = './'),
                             Projection = proj, Countries = 'Norway',
-                            Quiet = TRUE, Save = TRUE)
+                            Quiet = TRUE, Save = TRUE))
+
+  if (inherits(workflow, 'try-error')) {
+
+
+    workflow <- startWorkflow(Species = species,
+                  saveOptions = list(projectName = 'testthatexample', projectDirectory = './'),
+                  Projection = proj, Quiet = TRUE, Save = TRUE)
+
+
+    workflow$addArea(Object = countries)
+
+  }
 
   workflow$addGBIF(datasetName = 'GBIF_data', limit = 50) #Get less species
   workflow$addGBIF(datasetName = 'GBIF_data2', limit = 50, datasetType = 'PA')
@@ -33,8 +48,11 @@ testthat::test_that('sdmWorkflow produces the correct output given different Wor
 
   biasWorkflow <- startWorkflow(Species = species,
                             saveOptions = list(projectName = 'testthatexample', projectDirectory = './tests'),
-                            Projection = proj, Countries = 'Norway',
+                            Projection = proj,
                             Quiet = TRUE, Save = FALSE)
+
+  biasWorkflow$addArea(Object = countries)
+
 
   biasWorkflow$addGBIF(datasetName = 'GBIF_data') #Get less species
   biasWorkflow$addGBIF(datasetName = 'GBIF_data2', limit = 50, datasetType = 'PA')
@@ -49,8 +67,10 @@ testthat::test_that('sdmWorkflow produces the correct output given different Wor
 
   copyWorkflow <- startWorkflow(Species = species,
                                 saveOptions = list(projectName = 'testthatexample', projectDirectory = './tests'),
-                                Projection = proj, Countries = 'Norway',
+                                Projection = proj,
                                 Quiet = TRUE, Save = FALSE)
+
+  copyWorkflow$addArea(Object = countries)
 
   copyWorkflow$addGBIF(datasetName = 'GBIF_data') #Get less species
   copyWorkflow$addGBIF(datasetName = 'GBIF_data2', limit = 50, datasetType = 'PA')
