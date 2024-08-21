@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 
-<meta name="date" content="2023-10-20" />
+<meta name="date" content="2024-08-20" />
 
 <title>intSDM: R package to produce species distribution models in a reproducible framework</title>
 
@@ -50,7 +50,7 @@ overflow: visible;
 </style>
 <style type="text/css" data-origin="pandoc">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -149,6 +149,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; }
 div.csl-bib-body { }
 div.csl-entry {
 clear: both;
+margin-bottom: 0em;
 }
 .hanging div.csl-entry {
 margin-left:2em;
@@ -361,7 +362,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">intSDM: R package to produce species
 distribution models in a reproducible framework</h1>
-<h4 class="date">2023-10-20</h4>
+<h4 class="date">2024-08-20</h4>
 
 
 
@@ -469,25 +470,34 @@ be used if the user wants the objects to be saved in a folder created by
 the function.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a></span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>workflow <span class="ot">&lt;-</span> <span class="fu">startWorkflow</span>(</span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>        <span class="at">Projection =</span> <span class="st">&#39;+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m +no_defs&#39;</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>        <span class="at">Projection =</span> <span class="st">&#39;+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=km +no_defs&#39;</span>,</span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>        <span class="at">Species =</span> <span class="fu">c</span>(<span class="st">&quot;Fraxinus_excelsior&quot;</span>, <span class="st">&quot;Ulmus_glabra&quot;</span>, <span class="st">&quot;Arnica_montana&quot;</span>),</span>
 <span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>        <span class="at">saveOptions =</span> <span class="fu">list</span>(<span class="at">projectName =</span>  <span class="st">&#39;Vascular&#39;</span>), <span class="at">Save =</span> <span class="cn">FALSE</span></span>
 <span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>        )</span></code></pre></div>
 <div id="select-area" class="section level3">
 <h3>Select area</h3>
 <p>Next we specify the study domain for the study: in this case Norway.
-This can be achieved using the <em>countryName</em> argument which will
-then access the object from the <em>giscoR</em> <span class="citation">(Hernangómez 2023)</span> R package. The <em>…</em>
-argument is used to specify any additional arguments for
-<code>giscoR::gisco_get_countries()</code> function (in this case,
-<em>resolution</em>). If you have your own layer you would like to
-specify for the workflow (for example, a non-country layer), this may be
-added using the <em>Object</em> argument.</p>
+This can be achieved using either the <em>countryName</em> argument
+which will then access the object from the <em>giscoR</em> <span class="citation">(Hernangómez 2023)</span> R package, or by using
+<em>Object</em> and supplying our own polygon object. In this case we
+choose to add our own polygon object because the rigid coastline of a
+unedited Norway polygon will cause issues further down.</p>
 <p>We then use <code>.$plot()</code> to see what the boundary looks
 like.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addArea</span>(<span class="at">countryName =</span> <span class="st">&#39;Norway&#39;</span>, <span class="at">resolution =</span> <span class="st">&#39;60&#39;</span>)</span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>()</span></code></pre></div>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>yes <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="cf">if</span> (yes) {</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>Norway <span class="ot">&lt;-</span> giscoR<span class="sc">::</span><span class="fu">gisco_get_countries</span>(<span class="at">country =</span> <span class="st">&#39;Norway&#39;</span>, <span class="at">resolution =</span> <span class="dv">60</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>Norway <span class="ot">&lt;-</span> <span class="fu">st_cast</span>(<span class="fu">st_as_sf</span>(Norway), <span class="st">&#39;POLYGON&#39;</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>Norway <span class="ot">&lt;-</span> Norway[<span class="fu">which.max</span>(<span class="fu">st_area</span>(Norway)),]</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>Norway <span class="ot">&lt;-</span> rmapshaper<span class="sc">::</span><span class="fu">ms_simplify</span>(Norway, <span class="at">keep =</span> <span class="fl">0.8</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addArea</span>(<span class="at">Object =</span> Norway)</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>()</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>}</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>Norway <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">&#39;IntegratedLakefish/Norway.rds&#39;</span>)</span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addArea</span>(<span class="at">Object =</span> Norway)</span></code></pre></div>
 </div>
 <div id="adding-occurrence-data" class="section level3">
 <h3>Adding occurrence data</h3>
@@ -571,9 +581,9 @@ object, which we will use in the approximation of our spatial random
 fields. The <code>.$addMesh()</code> function’s argument <em>…</em> uses
 <code>INLA::inla.mesh.2d()</code> to create this object.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addMesh</span>(<span class="at">cutoff =</span> <span class="dv">20000</span>,</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                 <span class="at">max.edge =</span> <span class="fu">c</span>(<span class="dv">60000</span>, <span class="dv">80000</span>),</span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>                 <span class="at">offset=</span> <span class="dv">100000</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addMesh</span>(<span class="at">cutoff =</span> <span class="dv">20</span> <span class="sc">*</span> <span class="fl">0.25</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                 <span class="at">max.edge =</span> <span class="fu">c</span>(<span class="dv">60</span>, <span class="dv">80</span>)<span class="sc">*</span><span class="fl">0.5</span>, <span class="co">#0.25</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>                 <span class="at">offset=</span> <span class="fu">c</span>(<span class="dv">30</span>, <span class="dv">40</span>))</span>
 <span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
 <span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>(<span class="at">Mesh =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 </div>
@@ -585,43 +595,69 @@ standard deviation in the GRF’s Matérn covariance function in order to
 reduce over-fitting in the model <span class="citation">(Simpson et al.
 2017)</span>.</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">specifySpatial</span>(<span class="at">prior.range =</span> <span class="fu">c</span>(<span class="dv">300000</span>, <span class="fl">0.05</span>),</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>                        <span class="at">prior.sigma =</span> <span class="fu">c</span>(<span class="dv">50</span>, <span class="fl">0.2</span>))</span></code></pre></div>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">specifySpatial</span>(<span class="at">prior.range =</span> <span class="fu">c</span>(<span class="dv">100</span>, <span class="fl">0.1</span>),</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>                        <span class="at">prior.sigma =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.1</span>),</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>                        <span class="at">constr =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<p>We also specify priors for the intercept terms and the fixed effects
+of the models. In this vignette we choose tight priors (mean = 0;
+precision = 1).</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">specifyPriors</span>(<span class="at">effectNames =</span> <span class="st">&#39;Intercept&#39;</span>,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>                       <span class="at">Mean =</span> <span class="dv">0</span>, <span class="at">Precision =</span> <span class="dv">1</span>)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">specifyPriors</span>(<span class="st">&#39;tavg&#39;</span>, <span class="at">Mean =</span> <span class="dv">0</span>, <span class="at">Precision =</span> <span class="dv">1</span>)</span></code></pre></div>
 </div>
 <div id="bias-field" class="section level3">
 <h3>Bias field</h3>
 <p>We specify an additional spatial effect for the citizen science data
 using <code>.$biasFields()</code> to account biases in the collection
 process <span class="citation">(Simmonds et al. 2020)</span>.</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">biasFields</span>(<span class="st">&#39;CZ&#39;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">biasFields</span>(<span class="st">&#39;CZ&#39;</span>, </span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>                    <span class="at">prior.range =</span> <span class="fu">c</span>(<span class="dv">100</span>, <span class="fl">0.1</span>), <span class="co">#1 #0.1</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>                    <span class="at">prior.sigma =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.1</span>), <span class="co">#1 #0.1</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>                    <span class="at">constr =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
 </div>
 <div id="model-options" class="section level3">
 <h3>Model options</h3>
-<p>Finally we specify some options used in <code>INLA::inla()</code>, as
-well as the output from our workflow – in this case we want plots of the
-log-intensity for each species.</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a></span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">workflowOutput</span>(<span class="st">&#39;Maps&#39;</span>)</span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a></span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">modelOptions</span>(<span class="at">INLA =</span> <span class="fu">list</span>(<span class="at">control.inla=</span><span class="fu">list</span>(<span class="at">int.strategy =</span> <span class="st">&#39;eb&#39;</span>,</span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>                                                    <span class="at">cmin =</span> <span class="dv">0</span>),</span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>                                  <span class="at">safe =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>                                  <span class="at">inla.mode =</span> <span class="st">&#39;experimental&#39;</span>))</span></code></pre></div>
+<p>We specify the model output using the function
+<code>.$workflowOutput</code>. In this workflow, we want to return the
+<em>R-INLA</em> model objects and the maps of the predicted
+intensity.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#workflow$crossValidation(Method = &#39;Loo&#39;)</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">workflowOutput</span>(<span class="fu">c</span>(<span class="st">&#39;Maps&#39;</span>, <span class="st">&#39;Model&#39;</span>, <span class="st">&#39;Bias&#39;</span>))</span></code></pre></div>
 </div>
 </div>
 <div id="running-workflow" class="section level2">
 <h2>Running workflow</h2>
 <p>The workflow is then implemented using the <code>sdmWorkflow()</code>
-function. Due to the lengthy time it requires to produce this map,
-inference is not made in this vignette. However the script is available
-below for the user to run the model themselves.</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a></span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>Maps <span class="ot">&lt;-</span> <span class="fu">sdmWorkflow</span>(workflow)</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>Maps<span class="sc">$</span>Fraxinus_excelsior<span class="sc">$</span>Maps</span>
-<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>Maps<span class="sc">$</span>Ulmus_glabra<span class="sc">$</span>Maps</span>
-<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>Maps<span class="sc">$</span>Arnica_montana<span class="sc">$</span>Maps</span></code></pre></div>
-<div id="refs" class="references csl-bib-body hanging-indent">
+function. We also specify some <em>R-INLA</em> options to speed and
+stabilize the estimates of the model using <code>inlaOptions</code>.</p>
+<p>Due to the lengthy time it requires to produce this map, inference is
+not made in this vignette. However the script is available below for the
+user to run the model themselves.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>Maps <span class="ot">&lt;-</span> <span class="fu">sdmWorkflow</span>(workflow,<span class="at">inlaOptions =</span> <span class="fu">list</span>(<span class="at">control.inla=</span><span class="fu">list</span>(<span class="at">int.strategy =</span> <span class="st">&#39;ccd&#39;</span>,</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>                                                    <span class="at">strategy =</span> <span class="st">&#39;gaussian&#39;</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>                                                    <span class="at">cmin =</span> <span class="dv">0</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>                                                    <span class="at">diagonal =</span> <span class="fl">0.1</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>                                                    <span class="at">control.vb=</span><span class="fu">list</span>(<span class="at">enable =</span> <span class="cn">FALSE</span>)),</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>                                  <span class="at">safe =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>                                  <span class="at">verbose =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>                                  <span class="at">inla.mode =</span> <span class="st">&#39;experimental&#39;</span>),</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>              <span class="at">predictionDim =</span> <span class="fu">c</span>(<span class="dv">400</span>, <span class="dv">400</span>))</span></code></pre></div>
+</div>
+<div id="maps" class="section level2">
+<h2>Maps</h2>
+<p>Maps of the predicted intensity are given as follows.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>Maps<span class="sc">$</span>Fraxinus_excelsior<span class="sc">$</span>Maps</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>Maps<span class="sc">$</span>Ulmus_glabra<span class="sc">$</span>Maps</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>Maps<span class="sc">$</span>Arnica_montana<span class="sc">$</span>Maps</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="fu">saveRDS</span>(Maps, <span class="st">&#39;Maps.rds&#39;</span>)</span></code></pre></div>
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
 <div id="ref-bachl2019inlabru" class="csl-entry">
 Bachl, Fabian E, Finn Lindgren, David L Borchers, and Janine B Illian.
 2019. <span>“Inlabru: An r Package for Bayesian Spatial Modelling from

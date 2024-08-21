@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 ## ----initialize workflow------------------------------------------------------
 #  
 #  workflow <- startWorkflow(
-#          Projection = '+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m +no_defs',
+#          Projection = '+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=km +no_defs',
 #          Species = c("Fraxinus_excelsior", "Ulmus_glabra", "Arnica_montana"),
 #          saveOptions = list(projectName =  'Vascular'), Save = FALSE
 #          )
@@ -25,9 +25,19 @@ knitr::opts_chunk$set(
 
 ## ----addArea------------------------------------------------------------------
 #  
-#  workflow$addArea(countryName = 'Norway', resolution = '60')
-#  workflow$plot()
+#  yes <- FALSE
+#  if (yes) {
+#  Norway <- giscoR::gisco_get_countries(country = 'Norway', resolution = 60)
+#  Norway <- st_cast(st_as_sf(Norway), 'POLYGON')
+#  Norway <- Norway[which.max(st_area(Norway)),]
+#  Norway <- rmapshaper::ms_simplify(Norway, keep = 0.8)
 #  
+#  workflow$addArea(Object = Norway)
+#  workflow$plot()
+#  }
+#  
+#  Norway <- readRDS('IntegratedLakefish/Norway.rds')
+#  workflow$addArea(Object = Norway)
 
 ## ----addGBIF------------------------------------------------------------------
 #  
@@ -67,39 +77,60 @@ knitr::opts_chunk$set(
 
 ## ----INLA---------------------------------------------------------------------
 #  
-#  workflow$addMesh(cutoff = 20000,
-#                   max.edge = c(60000, 80000),
-#                   offset= 100000)
+#  workflow$addMesh(cutoff = 20 * 0.25,
+#                   max.edge = c(60, 80)*0.5, #0.25
+#                   offset= c(30, 40))
 #  
 #  workflow$plot(Mesh = TRUE)
 #  
 
 ## ----Priors-------------------------------------------------------------------
 #  
-#  workflow$specifySpatial(prior.range = c(300000, 0.05),
-#                          prior.sigma = c(50, 0.2))
+#  workflow$specifySpatial(prior.range = c(100, 0.1),
+#                          prior.sigma = c(1, 0.1),
+#                          constr = FALSE)
+#  
+
+## ----Fixed priors-------------------------------------------------------------
+#  
+#  workflow$specifyPriors(effectNames = 'Intercept',
+#                         Mean = 0, Precision = 1)
+#  
+#  workflow$specifyPriors('tavg', Mean = 0, Precision = 1)
 #  
 
 ## ----Bias---------------------------------------------------------------------
 #  
-#  workflow$biasFields('CZ')
+#  workflow$biasFields('CZ',
+#                      prior.range = c(100, 0.1), #1 #0.1
+#                      prior.sigma = c(1, 0.1), #1 #0.1
+#                      constr = FALSE)
 #  
 
 ## ----options------------------------------------------------------------------
 #  
-#  workflow$workflowOutput('Maps')
-#  
-#  workflow$modelOptions(INLA = list(control.inla=list(int.strategy = 'eb',
-#                                                      cmin = 0),
-#                                    safe = TRUE,
-#                                    inla.mode = 'experimental'))
+#  #workflow$crossValidation(Method = 'Loo')
+#  workflow$workflowOutput(c('Maps', 'Model', 'Bias'))
 #  
 
 ## ----Maps---------------------------------------------------------------------
 #  
-#  Maps <- sdmWorkflow(workflow)
+#  Maps <- sdmWorkflow(workflow,inlaOptions = list(control.inla=list(int.strategy = 'ccd',
+#                                                      strategy = 'gaussian',
+#                                                      cmin = 0,
+#                                                      diagonal = 0.1,
+#                                                      control.vb=list(enable = FALSE)),
+#                                    safe = TRUE,
+#                                    verbose = TRUE,
+#                                    inla.mode = 'experimental'),
+#                predictionDim = c(400, 400))
+
+## ----MapsOut------------------------------------------------------------------
+#  
 #  Maps$Fraxinus_excelsior$Maps
 #  Maps$Ulmus_glabra$Maps
 #  Maps$Arnica_montana$Maps
+#  
+#  saveRDS(Maps, 'Maps.rds')
 #  
 

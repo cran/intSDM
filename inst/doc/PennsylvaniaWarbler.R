@@ -16,17 +16,19 @@ knitr::opts_chunk$set(
 
 ## ----get data-----------------------------------------------------------------
 #  
-#  BBA <- PointedSDMs::SetophagaData$BBA
+#  data("SetophagaData")
+#  BBA <- SetophagaData$BBA
 #  BBA$Species_name <- paste0('Setophaga_', BBA$Species_name)
-#  BBS <- PointedSDMs::SetophagaData$BBS
+#  BBS <- SetophagaData$BBS
 #  BBS$Species_name <- paste0('Setophaga_', BBS$Species_name)
 #  
 
 ## ----startWorkflow------------------------------------------------------------
 #  
-#  workflow <- startWorkflow(
-#    Projection = "WGS84",
-#    Species = c("Setophaga_caerulescens", "Setophaga_fusca", "Setophaga_magnolia"),
+#  workflow <- startWorkflow(Richness = FALSE,
+#    Projection = "+proj=utm +zone=17 +datum=WGS84 +units=km",
+#    Species = c("Setophaga_caerulescens"),
+#                #"Setophaga_fusca", "Setophaga_magnolia"),
 #    saveOptions = list(projectName =  'Setophaga'), Save = FALSE
 #  )
 #  
@@ -39,14 +41,15 @@ knitr::opts_chunk$set(
 ## ----download Data------------------------------------------------------------
 #  
 #  workflow$addGBIF(datasetName = 'eBird', datasetType = 'PO', limit = 5000,
-#                   datasetKey = '4fa7b334-ce0d-4e88-aaae-2e0c138d049e')
-#  
-#  workflow$addStructured(dataStructured = BBA, datasetType = 'PA',
-#                         responseName = 'NPres',
-#                         speciesName = 'Species_name')
+#                   datasetKey = '4fa7b334-ce0d-4e88-aaae-2e0c138d049e',
+#                   year = '2005,2009')
 #  
 #  workflow$addStructured(dataStructured = BBS, datasetType = 'Counts',
 #                         responseName = 'Counts',
+#                         speciesName = 'Species_name')
+#  
+#  workflow$addStructured(dataStructured = BBA, datasetType = 'PA',
+#                         responseName = 'NPres',
 #                         speciesName = 'Species_name')
 #  
 #  workflow$plot(Species = TRUE)
@@ -65,27 +68,58 @@ knitr::opts_chunk$set(
 
 ## ----biasFields---------------------------------------------------------------
 #  
-#  workflow$biasFields(datasetName  = 'eBird')
+#  workflow$addMesh(cutoff = 0.2 * 5,
+#                   max.edge = c(0.1, 0.24) * 120,
+#                   offset = c(0.1, 0.4) * 100)
 #  
-#  workflow$addMesh(cutoff = 0.2,
-#                   max.edge = c(0.1, 0.24),
-#                   offset = c(0.1, 0.4))
+#  workflow$plot(Mesh = TRUE)
+#  
+
+## ----speciyRandom-------------------------------------------------------------
+#  
+#  ##Use a correlative structure to share information across the datasets if the standard model does not produce results that we want
+#  
+#  workflow$specifySpatial(prior.range = c(15, 0.1),
+#                          prior.sigma = c(1, 0.1))
+#  
+#  workflow$biasFields(datasetName = 'eBird',
+#                      prior.range = c(15, 0.1),
+#                      prior.sigma = c(1, 0.1))
+#  
+#  workflow$specifyPriors(effectNames = 'Intercept',
+#                         Mean = 0,
+#                         Precision = 1)
 #  
 
 ## ----outcomes-----------------------------------------------------------------
 #  
-#  workflow$workflowOutput('Model')
+#  workflow$workflowOutput(c('Model', 'Cross-validation'))
 #  
-#  workflow$modelOptions(INLA = list(control.inla=list(int.strategy = 'eb',
-#                                                      cmin = 0),
-#                                    safe = TRUE,
-#                                    inla.mode = 'experimental'))
+#  workflow$crossValidation(Method = 'spatialBlock',
+#                           blockOptions = list(k = 4,
+#                                               rows_cols = c(20, 20),
+#                                               plot = TRUE, seed = 123),
+#                           blockCVType = "Predict")
 #  
 
 ## ----sdmWorkflow--------------------------------------------------------------
 #  
-#  Models <- sdmWorkflow(Workflow = workflow)
+#  Model <- sdmWorkflow(Workflow = workflow,
+#                        inlaOptions = list(control.inla=list(int.strategy = 'eb',
+#                                                      diagonal = 0.1,
+#                                                      cmin = 0),
+#                                    safe = TRUE,
+#                                    verbose = TRUE,
+#                                    inla.mode = 'experimental'))
 #  
-#  lapply(unlist(Models, recursive = FALSE), summary)
+
+## ----plot int-----------------------------------------------------------------
+#  
+#  Model[[1]]$Model
+#  
+
+## ----plot bias----------------------------------------------------------------
+#  
+#  Model[[1]]$spatialBlock
 #  
 

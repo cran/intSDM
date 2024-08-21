@@ -5,7 +5,7 @@ Description: Integration of disparate datasets is needed in order to make effici
    Data integration is a powerful modeling framework which allows us to combine these datasets together into a single model, yet retain the strengths of each individual dataset.
    We therefore introduce the package, 'intSDM': an R package designed to help ecologists develop a reproducible workflow of integrated species distribution models, using data both provided from the user as well as data obtained freely online.
    An introduction to data integration methods is discussed in Issac, Jarzyna, Keil, Dambly, Boersch-Supan, Browning, Freeman, Golding, Guillera-Arroita, Henrys, Jarvis, Lahoz-Monfort, Pagel, Pescott, Schmucki, Simmonds and O’Hara (2020) <doi:10.1016/j.tree.2019.08.006>.
-Version: 2.0.2
+Version: 2.1.0
 Authors@R: 
     c(person(given = "Philip",
            family = "Mostert",
@@ -27,7 +27,8 @@ Authors@R:
              family = "Martin",
              role = c("aut"),
              email = "ellen.c.martin@ntnu.no"))
-Depends: R (>= 3.5), ggplot2, terra, sf, stats, PointedSDMs, methods
+Depends: R (>= 3.5), ggplot2, terra, sf, stats, PointedSDMs (>= 2.1.0),
+        methods
 Imports: R6, geodata, inlabru (>= 2.3.1), giscoR, blockCV, rgbif,
         tidyterra
 Suggests: viridis, INLA (>= 21.08.31), ggpolypath, R.utils, lwgeom,
@@ -35,11 +36,11 @@ Suggests: viridis, INLA (>= 21.08.31), ggpolypath, R.utils, lwgeom,
 Additional_repositories: https://inla.r-inla-download.org/R/testing/
 License: GPL (>= 3)
 Encoding: UTF-8
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2023-10-20 07:58:49 UTC; philism
+Packaged: 2024-08-20 11:15:59 UTC; philism
 Author: Philip Mostert [aut, cre],
   Angeline Bruls [aut],
   Ragnhild {Bjørkås} [aut],
@@ -47,4 +48,4 @@ Author: Philip Mostert [aut, cre],
   Ellen Martin [aut]
 Maintainer: Philip Mostert <philip.s.mostert@ntnu.no>
 Repository: CRAN
-Date/Publication: 2023-10-20 09:00:04 UTC
+Date/Publication: 2024-08-21 11:20:02 UTC
