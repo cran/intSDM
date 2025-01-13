@@ -6,10 +6,12 @@
 #' @param geometry An \code{sf} object surrounding the study area where observations need to be obtained.
 #' @param projection The coordinate reference system used for the observations and geometry.
 #' @param datasettype The type of dataset that is obtained from _GBIF_. Can be one of: \code{PO}, \code{PA}, \code{Counts}.
+#' @param filterDistance Remove all points x km away from the boundary polygon.
 #' @param ... Additional arguments to pass to \link[rgbif]{occ_download}.
 #'
 #' @import rgbif
 #' @import sf
+#' @import units
 #'
 #' @return An \code{sf} object containing the locations and other relevant information of the species obtained from _GBIF_.
 
@@ -18,6 +20,7 @@ obtainGBIF <- function(query,
                        geometry,
                        projection,
                        datasettype,
+                       filterDistance,
                        ...) {
 
   ##Add something here to create absences in lists where species are not.
@@ -148,17 +151,32 @@ obtainGBIF <- function(query,
 
   }
 
-  speciesOCC[, c('decimalLongitude', 'decimalLatitude')] <- sf::sf_project(pts = speciesOCC[, c('decimalLongitude', 'decimalLatitude')],
-                                                             to = as.character(projection),
-                                                             from = "+proj=longlat +ellps=WGS84")
+  #speciesOCC[, c('decimalLongitude', 'decimalLatitude')] <- sf::sf_project(pts = speciesOCC[, c('decimalLongitude', 'decimalLatitude')],
+  #                                                           to = as.character(projection),
+  #                                                           from = "+proj=longlat +ellps=WGS84")
 
-  speciesSF <- sf::st_as_sf(x = speciesOCC,
-                        coords = c('decimalLongitude', 'decimalLatitude'),
-                        crs = as.character(projection))
+  #speciesSF <- sf::st_as_sf(x = speciesOCC,
+  #                      coords = c('decimalLongitude', 'decimalLatitude'),
+  #                      crs = as.character(projection))
+
+    speciesSF <- sf::st_as_sf(x = speciesOCC,
+                          coords = c('decimalLongitude', 'decimalLatitude'),
+                          crs = "+proj=longlat +ellps=WGS84")
+
+    uniCoords <- st_equals(st_geometry(speciesSF))
+
+    speciesSF <- speciesSF[unique(unlist(uniCoords)),]
 
   speciesSF <- sf::st_transform(speciesSF, crs = as.character(projection))
 
   speciesIn <- speciesSF[unlist(st_intersects(geometry, speciesSF)),]
+
+  if (filterDistance > 0) {
+
+    distMatrix <- units::set_units(st_distance(speciesIn, st_cast(geometry,"MULTILINESTRING")), 'km')
+    speciesIn <- speciesIn[distMatrix[,1]> units::set_units(filterDistance, 'km'),]
+
+  }
 
   if (nrow(speciesIn) == 0) warning(paste(species, 'provided no occurrence reccords over the specified region.'))
 

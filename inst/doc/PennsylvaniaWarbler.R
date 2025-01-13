@@ -69,7 +69,7 @@ knitr::opts_chunk$set(
 ## ----biasFields---------------------------------------------------------------
 #  
 #  workflow$addMesh(cutoff = 0.2 * 5,
-#                   max.edge = c(0.1, 0.24) * 120,
+#                   max.edge = c(0.1, 0.24) * 80,
 #                   offset = c(0.1, 0.4) * 100)
 #  
 #  workflow$plot(Mesh = TRUE)
@@ -77,9 +77,7 @@ knitr::opts_chunk$set(
 
 ## ----speciyRandom-------------------------------------------------------------
 #  
-#  ##Use a correlative structure to share information across the datasets if the standard model does not produce results that we want
-#  
-#  workflow$specifySpatial(prior.range = c(15, 0.1),
+#  workflow$specifySpatial(prior.range = c(30, 0.1),
 #                          prior.sigma = c(1, 0.1))
 #  
 #  workflow$biasFields(datasetName = 'eBird',

@@ -35,7 +35,12 @@ initialize = function(Countries, Species, nameProject, Save,
   private$richnessEstimate <- Richness
 
   if (!Richness) private$optionsInla[['pointsSpatial']] <- 'copy'
-  else private$optionsInla[['pointsSpatial']] <- NULL
+  else {
+
+    private$optionsInla[['pointsSpatial']] <- NULL
+    private$optionsRichness[['speciesSpatial']] <- 'replicate'
+
+  }
 
   if (!missing(Countries)) {
 
@@ -551,11 +556,10 @@ if (nrow(strucData) > 0) {
   }
   ,
 
-#' @description Function to add an \code{inla.mesh} object to the workflow. The user may either add their own mesh to the workflow, or use the arguments of this function to help create one.
-#' @param Object An \code{inla.mesh} object to add to the workflow.
-#' @param ... Additional arguments to pass to \code{INLA}'s \code{inla.mesh.2d}. Use \code{?inla.mesh.2d} to find out more about the different arguments.
+#' @description Function to add an \code{fm_mesh_2d} object to the workflow. The user may either add their own mesh to the workflow, or use the arguments of this function to help create one.
+#' @param Object An \code{fm_mesh_2d} object to add to the workflow.
+#' @param ... Additional arguments to pass to \code{fmesher}'s \code{fm_mesh_2d_inla}. Use \code{?fm_mesh_2d_inla} to find out more about the different arguments.
 #' @examples
-#' if (requireNamespace('INLA')) {
 #' \dontrun{
 #' workflow <- startWorkflow(Species = 'Fraxinus excelsior',
 #'                           Projection = '+proj=longlat +ellps=WGS84',
@@ -569,36 +573,36 @@ if (nrow(strucData) > 0) {
 #'                  offset= 100000)
 #'
 #' }
-#' }
 
   addMesh = function(Object,
                      ...) {
 
     if (missing(Object) &&
-        is.null(private$Area)) stop ('Please provide an inla.mesh object or use the ... argument to specify a mesh.')
+        is.null(private$Area)) stop ('Please provide an fm_mesh_2d object or use the ... argument to specify a mesh.')
 
     if (missing(Object)) {
 
       meshArgs <- list(...)
-      if (length(meshArgs) == 0) stop('Please provide ... to specify the mesh construction. See ?inla.mesh.2d for more details.')
+      if (length(meshArgs) == 0) stop('Please provide ... to specify the mesh construction. See ?fm_mesh_2d_inla for more details.')
 
-      meshObj <- INLA::inla.mesh.2d(boundary = fmesher::fm_as_segm(private$Area[1]),
-                                    crs = inlabru::fm_crs(private$Projection),
-                                         ...
-                                          )
+      meshObj <- fmesher::fm_mesh_2d_inla(
+        boundary = fmesher::fm_as_segm(private$Area[1]),
+        crs = fmesher::fm_crs(private$Projection),
+        ...
+      )
 
       private$Mesh <- meshObj
 
     }
     else {
 
-      if (!inherits(Object, 'inla.mesh')) stop('Object provided is not an inla.mesh object.')
+      if (!inherits(Object, 'fm_mesh_2d')) stop('Object provided is not an fm_mesh_2d object.')
 #Ensure CRS is the same
       private$Mesh <- Object
 
     }
 
-    if (!private$Quiet) message('INLA mesh added successfully.')
+    if (!private$Quiet) message('Mesh added successfully.')
 
     }
   ,
@@ -609,6 +613,7 @@ if (nrow(strucData) > 0) {
 #' @param datasetType The data type of the dataset. Defaults to \code{PO}, but may also be \code{PA} or \code{Counts}.
 #' @param removeDuplicates Argument used to remove duplicate observations for a species across datasets. May take a long time if there are many observations obtained across multiple datasets. Defaults to \code{FALSE}.
 #' @param generateAbsences Generates absences for \code{'PA'} data. This is done by combining all the sampling locations for all the species, and creating an absence where a given species does not occur.
+#' @param filterDistance Remove all points that are x kilometers away from the boundary polygon. Value must be provided in kilometers. Defaults to 0 km which removes no points.
 #' @param ... Additional arguments to specify the \link[rgbif]{occ_data} function from \code{rgbif}. See \code{?occ_data} for more details.
 #' @examples
 #' \dontrun{
@@ -627,7 +632,9 @@ if (nrow(strucData) > 0) {
 addGBIF = function(Species = 'All', datasetName = NULL,
                    datasetType = 'PO',
                    removeDuplicates = FALSE,
-                   generateAbsences = FALSE, ...) {
+                   generateAbsences = FALSE,
+                   filterDistance = 0,
+                   ...) {
 
   if (is.null(private$Area)) stop('An area needs to be provided before adding species. This may be done with the `.$addArea` function.')
 
@@ -658,6 +665,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
                             projection = private$Projection,
                                                 #varsKeep = c(responseCounts, responsePA),
                             datasettype = datasetType,
+                            filterDistance = filterDistance,
                             ...))
 
   if (!inherits(GBIFspecies, 'try-error')) {
@@ -739,6 +747,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
 #' @description Function to add spatial covariates to the workflow. The covariates may either be specified by the user, or they may come from worldClim obtained with the \code{geodata} package.
 #' @param Object A object of class: \code{spatRaster}, \code{SpatialPixelsDataFrame} or \code{raster} containing covariate information across the area. Note that this function will check if the covariates span the boundary area, so it may be preferable to add your own boundary using \code{`.$addArea`} if this argument is specified.
 #' @param worldClim Name of the worldClim to include in the model. See \code{?worldclim_country} from the \code{geodata} package for more information.
+#' @param landCover Name of the land cover covariates to include in the model. See \code{?landcover} from the \code{geodata} package for more information.
 #' @param Months The months to include the covariate for. Defaults to \code{All} which includes covariate layers for all months.
 #' @param res Resolution of the worldclim variable. Valid options are: \code{10}, \code{5}, \code{2.5} or \code{0.5} (minutes of a degree).
 #' @param Function The function to aggregate the temporal data into one layer. Defaults to \code{mean}.
@@ -760,9 +769,10 @@ addGBIF = function(Species = 'All', datasetName = NULL,
 #'
 #' }
 #'}
-
+##Try adding soil?
   addCovariates = function(Object = NULL,
                            worldClim = NULL,
+                           landCover = NULL,
                            res = 2.5,
                            Months = 'All',
                            Function = 'mean', ...) {
@@ -770,13 +780,22 @@ addGBIF = function(Species = 'All', datasetName = NULL,
     if (is.null(private$Area)) stop("Area is required before obtaining covariates. Please use `.$addArea()`.")
 
     if (all(is.null(Object),
-            is.null(worldClim))) stop ('One of object or worldClim is required..')
+            is.null(worldClim),
+            is.null(landCover))) stop ('One of object, worldClim or landCover is required..')
 
 
-    if (length(worldClim) > 1) stop ('Please only add one worldClim variable at a time.')
+    if (length(worldClim) > 1|
+        length(landCover) > 1) stop ('Please only add one worldClim or landCover variable at a time.')
 
 
   if (is.null(Object)) {
+
+    covDirectory <- paste0(private$Directory, '/Covariates')
+    dir.create(covDirectory, showWarnings = FALSE)
+    if (!dir.exists(covDirectory)) covDirectory <- getwd()#dir.create(covDirectory)
+    if (!private$Quiet) message(paste('Saved covariate objects may be found in', covDirectory))
+
+    if (!is.null(worldClim)) {
 
     if (!worldClim %in% c("tavg", "tmin", "tmax",
                           "prec", "bio", "bioc",
@@ -792,19 +811,32 @@ addGBIF = function(Species = 'All', datasetName = NULL,
     if (all(Months == 'All')) covIndex <- 1:12
     else covIndex <- match(Months, months)
 
-    covDirectory <- paste0(private$Directory, '/Covariates')
-    dir.create(covDirectory, showWarnings = FALSE)
-    if (!dir.exists(covDirectory)) covDirectory <- getwd()#dir.create(covDirectory)
-    if (!private$Quiet) message(paste('Saved covariate objects may be found in', covDirectory))
+    typeCov <- 'worldclim'
 
     #if (is.null(private$Countries)) stop('Please specify a country first before obtaining a covariate layer. This may be done using either startWorkflow or through `.$addArea`.')
+    }
+    else {
 
-    covRaster <- obtainCovariate(covariates = worldClim,
+      if (!landCover %in% c("trees", "grassland", "shrubs",
+                            "cropland", "built", "bare",
+                            "snow", "water", "wetland", "mangroves",
+                            'moss')) stop('landCover argument is not a valid option.')
+
+      typeCov <- 'landcover'
+      covIndex <- 1
+
+
+    }
+
+    covRaster <- obtainCovariate(covariates = switch(typeCov, worldclim = {worldClim}, landcover = {landCover}),
                                  res = res,
+                                 type = typeCov,
                                  as.character(private$Projection),
                                  path = covDirectory)
 
     covRaster <- terra::mask(terra::crop(covRaster, private$Area), private$Area)
+
+    if (!is.null(worldClim)) {
 
     if (deparse(substitute(Function)) %in% c('mean', 'median', 'sd')) covRaster <- terra::app(covRaster[[covIndex]], fun = Function)
     else covRaster <- terra::app(terra::app(covRaster[[covIndex]], fun = mean), fun = Function)
@@ -812,6 +844,15 @@ addGBIF = function(Species = 'All', datasetName = NULL,
     names(covRaster) <- worldClim
 
     private$Covariates[[worldClim]] <- covRaster
+
+
+    } else {
+      covRaster <- terra::app(terra::app(covRaster[[covIndex]], fun = mean), fun = Function)
+      names(covRaster) <- landCover
+      private$Covariates[[landCover]] <- covRaster
+
+
+    }
 
 
   }
@@ -828,11 +869,11 @@ addGBIF = function(Species = 'All', datasetName = NULL,
       for (cov in names(Object)) {
 
       #Check this for all classes
-      maskedDF <- terra::crop(terra::mask(Object[cov][[1]], private$Area), private$Area)
+      maskedDF <- terra::mask(terra::crop(Object[cov][[1]], private$Area), private$Area)
 
       if (all(is.na(terra::values(maskedDF)))) stop('The covariate provided and the area specified do not match.')
 
-      private$Covariates[[cov]] <- Object[cov]
+      private$Covariates[[cov]] <- maskedDF[cov]#Object[cov]
 
 }
       #else get name of object and then save it
@@ -974,7 +1015,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
 
     if ('samplingSize' %in% names(Richness)) private$samplingSize <- Richness[['samplingSize']]
 
-    if (!'speciesSpatial' %in% names(Richness)) Richness[['speciesSpatial']] <- 'shared'
+    if (!'speciesSpatial' %in% names(Richness)) Richness[['speciesSpatial']] <- 'replicate'
     else
       if (!Richness[['speciesSpatial']] %in% c('shared', 'replicate', 'copy') && !is.null(Richness[['speciesSpatial']])) stop ('speciesSpatial must be either: NULL, "replicate", "copy" or "shared.')
 
@@ -1186,11 +1227,23 @@ obtainMeta = function(Number = TRUE,
 
     cat(paste0(species, ':'),'\n')
 
+    if (!private$richnessEstimate) {
+
     if (length(private$dataGBIF) > 0) speciesNumGBIF <- unlist(lapply(private$dataGBIF[[species]], nrow))
     else speciesNumGBIF <- NULL
 
-    if (length(private$dataStructured) > 0) speciesNumStructured <- unlist(lapply(private$dataGBIF[[species]], nrow))
+    if (length(private$dataStructured) > 0) speciesNumStructured <- unlist(lapply(private$dataStructured[[species]], nrow))
     else speciesNumStructured <- NULL
+
+    } else {
+
+      if (length(private$dataGBIF) > 0) speciesNumGBIF <- unlist(lapply(unlist(private$dataGBIF, recursive = FALSE), function(x) nrow(x[sub(" ", "_",x$speciesName) == species,])))
+      else speciesNumGBIF <- NULL
+
+      if (length(private$dataStructured) > 0) speciesNumStructured <-  unlist(lapply(unlist(rivate$dataStructured, recursive = FALSE), function(x) nrow(x[sub(" ", "_",x$speciesName) == species,])))
+      else speciesNumStructured <- NULL
+
+    }
 
     speciesNum <- c(speciesNumGBIF, speciesNumStructured)
 

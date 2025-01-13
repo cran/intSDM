@@ -13,7 +13,7 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>",
+  comment = "#>", 
   eval = FALSE,
   fig.width=8, 
   fig.height=5,
@@ -34,22 +34,20 @@ library(INLA)
 
 *intSDM* has two main functions: `startWorkflow()` and `sdmWorkflow()`. The first of which is designed to setup and specify all the individual components of the workflow using different slot functions. The functions related to this object include:
 
-| Function name         | Function use                                                                                               |
-|-----------------------|------------------------------------------------------------------------------------------------------------|
-| `.$plot()`            | Plot data and other objects required for the model.                                                        |
-| `.$addStructured()`   | Add data not available on GBIF.                                                                            |
-| `.$addMesh()`         | Create an *inla.mesh* object.                                                                              |
-| `.$addGBIF()`         | Add data from GBIF.                                                                                        |
-| `.$addArea()`         | Specify sampling domain.                                                                                   |
-| `.$addCovariates()`   | Add spatial covariates.                                                                                    |
-| `.$crossValidation()` | Specify the cross-validation method.                                                                       |
-| `.$modelOptions()`    | Add *R-INLA [@martins2013bayesian], inlabru [@bachl2019inlabru]* and *PointedSDMs* [@PointedSDMs] options. |
-| `.$specifySpatial()`  | Add penalizing complexity priors to the spatial effects.                                                   |
-| `.$biasFields()`      | Specify an additional spatial effect for a dataset.                                                        |
-| `.$workflowOutput()`  | Specify the output of the workflow.                                                                        |
-| `.$obtainMeta()`      | Obtain metadata for the occurrence records.                                                                |
-
-`sdmWorkflow()` implements the workflow based on the objects added in `startWorkflow()`. The output of this function is a list of objects specified in `.$workflowOutput()`.
+| Function name | Function use |
+|--------------------|----------------------------------------------------|
+| `.$plot()` | Plot data and other objects required for the model. |
+| `.$addStructured()` | Add data not available on GBIF. |
+| `.$addMesh()` | Create an *inla.mesh* object. |
+| `.$addGBIF()` | Add data from GBIF. |
+| `.$addArea()` | Specify sampling domain. |
+| `.$addCovariates()` | Add spatial covariates. |
+| `.$crossValidation()` | Specify the cross-validation method. |
+| `.$modelOptions()` | Add *R-INLA [@martins2013bayesian], inlabru [@bachl2019inlabru]* and *PointedSDMs* [@PointedSDMs] options. |
+| `.$specifySpatial()` | Add penalizing complexity priors to the spatial effects. |
+| `.$biasFields()` | Specify an additional spatial effect for a dataset. |
+| `.$workflowOutput()` | Specify the output of the workflow. |
+| `.$obtainMeta()` | Obtain metadata for the occurrence records. |
 
 ## Workflow setup
 
@@ -59,8 +57,11 @@ The other arguments (*saveOptions* and *Save)* should be used if the user wants 
 
 ```{r initialize workflow}
 
+proj <- '+proj=tmerc +lat_0=0 +lon_0=15 +k=0.9996 +datum=WGS84 +units=km +x_0=500 +y_0=0 +no_defs'
+#proj <- '+proj=utm +zone=32 +datum=WGS84 +units=km +no_defs +type=crs'
+
 workflow <- startWorkflow(
-        Projection = '+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=km +no_defs',
+        Projection = proj,
         Species = c("Fraxinus_excelsior", "Ulmus_glabra", "Arnica_montana"),
         saveOptions = list(projectName =  'Vascular'), Save = FALSE
         )
@@ -75,19 +76,16 @@ We then use `.$plot()` to see what the boundary looks like.
 
 ```{r addArea}
 
-yes <- FALSE
-if (yes) {
-Norway <- giscoR::gisco_get_countries(country = 'Norway', resolution = 60)
+Norway <- fm_transform(giscoR::gisco_get_countries(country = 'Norway', resolution = 60),
+                       proj)
 Norway <- st_cast(st_as_sf(Norway), 'POLYGON')
 Norway <- Norway[which.max(st_area(Norway)),]
 Norway <- rmapshaper::ms_simplify(Norway, keep = 0.8)
+Norway <- st_as_sf(fm_extensions(Norway, convex = c(10, 20))[[1]])
 
 workflow$addArea(Object = Norway)
 workflow$plot()
-}
 
-Norway <- readRDS('IntegratedLakefish/Norway.rds')
-workflow$addArea(Object = Norway)
 ```
 
 ### Adding occurrence data
@@ -96,31 +94,31 @@ Species' occurrence data is certainly the most important component of a SDM, and
 
 The former of which uses the *rgbif* package to download data directly from GBIF. For this function, we need to specify the name of the dataset (*datasetName*) and the type of the dataset (*datasetType*) -- which can be one of *PO, PA* or *Counts*. The *...* argument is used to specify any addiditional arguments for `rgbif::occ_data()` [@chamberlain2022rgbif] (in this case, *limit* and *datasetKey*). If *`datasetType = 'PA'`*, absences may be generated using *`generateAbsences = TRUE`*. This will treat the obtained data as a checklist survey data: combining all the sampling locations for the species in the dataset, and creating absences when a given species did not occur in a given region.
 
-For this example we consider three sources of data. The *Vascular Plant Field Notes* is a collection of observations provided by the *Norwegian University of Science and Technolog*y's (NTNU) [@NTNU] University Museum and the *University of Oslo* (UiO) [@UiO], containing records of standardized cross-lists of most vascular plants found in Norway. We treat these two datasets as detection/non-detection data, generating absences in sampling locations where the species does not occur.
+For this example we consider three sources of data. The *Vascular Plant Field Notes* is a collection of observations provided by the *Norwegian University of Science and Technology*'s (NTNU) [@NTNU] University Museum and the *University of Oslo* (UiO) [@UiO], containing records of standardized cross-lists of most vascular plants found in Norway. We treat these two datasets as detection/non-detection data, generating absences in sampling locations where the species does not occur.
 
 The other source of data considered comes from the Norwegian Species Observation service (published by *Artsdatabanken*) [@Ardatasbanken]. This data is a collection of citizen science records -- and as a result we treat it as presence-only data.
 
 ```{r addGBIF}
 
-workflow$addGBIF(datasetName = 'NTNU', 
-                 datasetType = 'PA',
-                 limit = 10000,
-                 coordinateUncertaintyInMeters = '0,50',
-                 generateAbsences = TRUE, 
-                 datasetKey = 'd29d79fd-2dc4-4ef5-89b8-cdf66994de0d')
+workflow$addGBIF(datasetName = 'CZ', 
+                 datasetType = 'PO',
+                 coordinateUncertaintyInMeters = '0,100',
+                 limit = 10000, 
+                 datasetKey = 'b124e1e0-4755-430f-9eab-894f25a9b59c')
 
 workflow$addGBIF(datasetName = 'UiO',
                  datasetType = 'PA',
-                 limit = 10000,
-                 coordinateUncertaintyInMeters = '0,50',
+                 limit = 10000, 
+                 coordinateUncertaintyInMeters = '0,100', 
                  generateAbsences = TRUE,
                  datasetKey = 'e45c7d91-81c6-4455-86e3-2965a5739b1f')
 
-workflow$addGBIF(datasetName = 'CZ', 
-                 datasetType = 'PO',
-                 coordinateUncertaintyInMeters = '0,50',
-                 limit = 10000,
-                 datasetKey = 'b124e1e0-4755-430f-9eab-894f25a9b59c')
+workflow$addGBIF(datasetName = 'NTNU', 
+                 datasetType = 'PA',
+                 limit = 10000, 
+                 coordinateUncertaintyInMeters = '0,100', 
+                 generateAbsences = TRUE, 
+                 datasetKey = 'd29d79fd-2dc4-4ef5-89b8-cdf66994de0d')
 
 workflow$plot(Species = TRUE)
 
@@ -128,11 +126,14 @@ workflow$plot(Species = TRUE)
 
 ### Adding covariate data
 
-Covariate data may be added to the model using `.$addCovariates()`. Layers from *WorldClim [@fick2017worldclim]* may be accessed using the *worldClim argument*. This in turn uses the *geodata [@geodata]* R package to obtain *spatRaster* objects of the covariates cropped around the study domain. Other covariate layers may be added using the *Object* argument.
+Covariate data may be added to the model using `.$addCovariates()`. Layers from *WorldClim [@fick2017worldclim]* may be accessed using the *worldClim argument*, and land cover covariates may be obtained using the *landCover* argument.. This in turn uses the *geodata [@geodata]* R package to obtain *spatRaster* objects of the covariates cropped around the study domain. Other covariate layers may be added using the *Object* argument.
 
 ```{r addCovariates, eval = FALSE}
 
-workflow$addCovariates(worldClim = 'tavg', res = 5, Function = scale)
+workflow$addCovariates(worldClim = 'tavg', res = 2.5, Function = scale)
+
+workflow$addCovariates(landCover = 'grassland', Function = scale)
+
 workflow$plot(Covariates = TRUE)
 
 ```
@@ -147,15 +148,15 @@ workflow$obtainMeta()
 
 ```
 
-### Creating an *inla.mesh* object
+### Creating an *fm_mesh_2d* object
 
-One of the objects required for our model is an *inla.mesh* object, which we will use in the approximation of our spatial random fields. The `.$addMesh()` function's argument *...* uses `INLA::inla.mesh.2d()` to create this object.
+One of the objects required for our model is an *fm_mesh_2d* object, which we will use in the approximation of our spatial random fields. The `.$addMesh()` function's argument *...* uses `fmesher::fm_mesh_2d_inla()` to create this object.
 
 ```{r INLA}
 
-workflow$addMesh(cutoff = 20 * 0.25,
-                 max.edge = c(60, 80)*0.5, #0.25
-                 offset= c(30, 40))
+workflow$addMesh(cutoff = 20 * 0.5,
+                 max.edge = c(60, 180) * 0.5,
+                 offset= c(30, 250))
 
 workflow$plot(Mesh = TRUE)
 
@@ -163,13 +164,12 @@ workflow$plot(Mesh = TRUE)
 
 ### Specify priors
 
-Furthermore we also used *penalizing complexity* (PC) priors in our model, which are designed to control the spatial range and standard deviation in the GRF's Matérn covariance function in order to reduce over-fitting in the model [@simpson2017penalising].
+Furthermore we also used *penalizing complexity* (PC) priors in our model, which are designed to control the spatial range and standard deviation in the GRF's Matérn covariance function in order to reduce over-fitting in the model [@simpson2017penalising]. An integrate-to-zero constraint is set to stabilize the model, using `constr = TRUE`.
 
 ```{r Priors}
 
-workflow$specifySpatial(prior.range = c(100, 0.1),
-                        prior.sigma = c(1, 0.1),
-                        constr = FALSE)
+workflow$specifySpatial(prior.range = c(200, 0.2),
+                        prior.sigma = c(1, 0.01), constr = TRUE)
 
 ```
 
@@ -182,28 +182,36 @@ workflow$specifyPriors(effectNames = 'Intercept',
 
 workflow$specifyPriors('tavg', Mean = 0, Precision = 1)
 
+workflow$specifyPriors('grassland', Mean = 0, Precision = 1)
+
 ```
 
 ### Bias field
 
-We specify an additional spatial effect for the citizen science data using `.$biasFields()` to account biases in the collection process [@simmonds2020more].
+We specify an additional spatial effect for the citizen science data using `.$biasFields()` to account biases in the collection process [@simmonds2020more]. The same
 
 ```{r Bias}
 
 workflow$biasFields('CZ', 
-                    prior.range = c(100, 0.1), #1 #0.1
-                    prior.sigma = c(1, 0.1), #1 #0.1
-                    constr = FALSE)
+                    prior.range = c(200, 0.2),
+                    prior.sigma = c(1, 0.01)) 
 
 ```
 
 ### Model options
 
-We specify the model output using the function `.$workflowOutput`. In this workflow, we want to return the *R-INLA* model objects and the maps of the predicted intensity.
+To simplify the model, we set the parameter used to connect the shared spatial effect between the likelioods to a fixed value of 1.
+
+```{r specPrior}
+
+workflow$specifyPriors(copyModel = list(beta = list(fixed = TRUE)))
+
+```
+
+We them specify the model output using the function `.$workflowOutput`. In this workflow, we want to return the *R-INLA* model objects and the maps of the predicted intensity.
 
 ```{r options}
 
-#workflow$crossValidation(Method = 'Loo')
 workflow$workflowOutput(c('Maps', 'Model', 'Bias'))
 
 ```
@@ -216,15 +224,16 @@ Due to the lengthy time it requires to produce this map, inference is not made i
 
 ```{r Maps}
 
-Maps <- sdmWorkflow(workflow,inlaOptions = list(control.inla=list(int.strategy = 'ccd',
-                                                    strategy = 'gaussian',
+Maps <- sdmWorkflow(workflow,inlaOptions = list(num.threads = 1,
+                                                control.inla=list(int.strategy = 'ccd',
+                                                    h = 1e-4,
                                                     cmin = 0,
-                                                    diagonal = 0.1,
                                                     control.vb=list(enable = FALSE)),
                                   safe = TRUE,
                                   verbose = TRUE,
                                   inla.mode = 'experimental'),
-              predictionDim = c(400, 400))
+              predictionDim = c(400, 400),
+              ipointsOptions = list(method = 'direct'))
 ```
 
 ## Maps
@@ -237,6 +246,12 @@ Maps$Fraxinus_excelsior$Maps
 Maps$Ulmus_glabra$Maps
 Maps$Arnica_montana$Maps
 
-saveRDS(Maps, 'Maps.rds')
+```
+
+And model summaries as:
+
+```{r model Summaries}
+
+lapply(Maps, function(x) x$Model)
 
 ```

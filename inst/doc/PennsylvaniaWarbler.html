@@ -60,7 +60,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
 { counter-reset: source-line 0; }
@@ -440,28 +440,27 @@ variable we wanted to download.</p>
 <span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addCovariates</span>(<span class="at">Object =</span> covariates)</span>
 <span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  </span>
 <span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>(<span class="at">Covariates =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
-<p>We add an <em>inla.mesh</em> object using <code>.$addMesh</code>.</p>
+<p>We add an <em>fm_mesh_2d</em> object using
+<code>.$addMesh</code>.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a></span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">addMesh</span>(<span class="at">cutoff =</span> <span class="fl">0.2</span> <span class="sc">*</span> <span class="dv">5</span>,</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                 <span class="at">max.edge =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="fl">0.24</span>) <span class="sc">*</span> <span class="dv">120</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                 <span class="at">max.edge =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="fl">0.24</span>) <span class="sc">*</span> <span class="dv">80</span>,</span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>                 <span class="at">offset =</span> <span class="fu">c</span>(<span class="fl">0.1</span>, <span class="fl">0.4</span>) <span class="sc">*</span> <span class="dv">100</span>)</span>
 <span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a></span>
 <span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">plot</span>(<span class="at">Mesh =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <p>And add a second spatial effect for the <em>eBird</em> data, and
 specify priors.</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a></span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="do">##Use a correlative structure to share information across the datasets if the standard model does not produce results that we want</span></span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">specifySpatial</span>(<span class="at">prior.range =</span> <span class="fu">c</span>(<span class="dv">15</span>, <span class="fl">0.1</span>),</span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>                        <span class="at">prior.sigma =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.1</span>))</span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">biasFields</span>(<span class="at">datasetName =</span> <span class="st">&#39;eBird&#39;</span>,</span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>                    <span class="at">prior.range =</span> <span class="fu">c</span>(<span class="dv">15</span>, <span class="fl">0.1</span>),</span>
-<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>                    <span class="at">prior.sigma =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.1</span>))</span>
-<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a></span>
-<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">specifyPriors</span>(<span class="at">effectNames =</span> <span class="st">&#39;Intercept&#39;</span>, </span>
-<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>                       <span class="at">Mean =</span> <span class="dv">0</span>, </span>
-<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>                       <span class="at">Precision =</span> <span class="dv">1</span>)</span></code></pre></div>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">specifySpatial</span>(<span class="at">prior.range =</span> <span class="fu">c</span>(<span class="dv">30</span>, <span class="fl">0.1</span>),</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>                        <span class="at">prior.sigma =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.1</span>))</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">biasFields</span>(<span class="at">datasetName =</span> <span class="st">&#39;eBird&#39;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>                    <span class="at">prior.range =</span> <span class="fu">c</span>(<span class="dv">15</span>, <span class="fl">0.1</span>),</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>                    <span class="at">prior.sigma =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">0.1</span>))</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>workflow<span class="sc">$</span><span class="fu">specifyPriors</span>(<span class="at">effectNames =</span> <span class="st">&#39;Intercept&#39;</span>, </span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>                       <span class="at">Mean =</span> <span class="dv">0</span>, </span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>                       <span class="at">Precision =</span> <span class="dv">1</span>)</span></code></pre></div>
 <p>For this case study, we specify the model outcome as <em>Model</em>
 and <em>cross-validation</em>. This will give us: an <em>R-INLA</em>
 model outcome for which we could analyse further, and estimates of

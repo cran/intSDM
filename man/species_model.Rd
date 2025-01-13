@@ -85,7 +85,6 @@ workflow$addStructured(dataStructured = speciesData, datasetType = 'PA',
 ## Method `species_model$addMesh`
 ## ------------------------------------------------
 
-if (requireNamespace('INLA')) {
 \dontrun{
 workflow <- startWorkflow(Species = 'Fraxinus excelsior',
                           Projection = '+proj=longlat +ellps=WGS84',
@@ -98,7 +97,6 @@ workflow$addMesh(cutoff = 20000,
                  max.edge=c(60000, 80000),
                  offset= 100000)
 
-}
 }
 
 ## ------------------------------------------------
@@ -550,7 +548,7 @@ workflow$addStructured(dataStructured = speciesData, datasetType = 'PA',
 \if{html}{\out{<a id="method-species_model-addMesh"></a>}}
 \if{latex}{\out{\hypertarget{method-species_model-addMesh}{}}}
 \subsection{Method \code{addMesh()}}{
-Function to add an \code{inla.mesh} object to the workflow. The user may either add their own mesh to the workflow, or use the arguments of this function to help create one.
+Function to add an \code{fm_mesh_2d} object to the workflow. The user may either add their own mesh to the workflow, or use the arguments of this function to help create one.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{species_model$addMesh(Object, ...)}\if{html}{\out{</div>}}
 }
@@ -558,16 +556,15 @@ Function to add an \code{inla.mesh} object to the workflow. The user may either 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{Object}}{An \code{inla.mesh} object to add to the workflow.}
+\item{\code{Object}}{An \code{fm_mesh_2d} object to add to the workflow.}
 
-\item{\code{...}}{Additional arguments to pass to \code{INLA}'s \code{inla.mesh.2d}. Use \code{?inla.mesh.2d} to find out more about the different arguments.}
+\item{\code{...}}{Additional arguments to pass to \code{fmesher}'s \code{fm_mesh_2d_inla}. Use \code{?fm_mesh_2d_inla} to find out more about the different arguments.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{if (requireNamespace('INLA')) {
-\dontrun{
+\preformatted{\dontrun{
 workflow <- startWorkflow(Species = 'Fraxinus excelsior',
                           Projection = '+proj=longlat +ellps=WGS84',
                           Save = FALSE,
@@ -579,7 +576,6 @@ workflow$addMesh(cutoff = 20000,
                  max.edge=c(60000, 80000),
                  offset= 100000)
 
-}
 }
 }
 \if{html}{\out{</div>}}
@@ -599,6 +595,7 @@ Function to add species occurrence records from GBIF (using the \code{rgbif} pac
   datasetType = "PO",
   removeDuplicates = FALSE,
   generateAbsences = FALSE,
+  filterDistance = 0,
   ...
 )}\if{html}{\out{</div>}}
 }
@@ -615,6 +612,8 @@ Function to add species occurrence records from GBIF (using the \code{rgbif} pac
 \item{\code{removeDuplicates}}{Argument used to remove duplicate observations for a species across datasets. May take a long time if there are many observations obtained across multiple datasets. Defaults to \code{FALSE}.}
 
 \item{\code{generateAbsences}}{Generates absences for \code{'PA'} data. This is done by combining all the sampling locations for all the species, and creating an absence where a given species does not occur.}
+
+\item{\code{filterDistance}}{Remove all points that are x kilometers away from the boundary polygon. Value must be provided in kilometers. Defaults to 0 km which removes no points.}
 
 \item{\code{...}}{Additional arguments to specify the \link[rgbif]{occ_data} function from \code{rgbif}. See \code{?occ_data} for more details.}
 }
@@ -649,6 +648,7 @@ Function to add spatial covariates to the workflow. The covariates may either be
 \if{html}{\out{<div class="r">}}\preformatted{species_model$addCovariates(
   Object = NULL,
   worldClim = NULL,
+  landCover = NULL,
   res = 2.5,
   Months = "All",
   Function = "mean",
@@ -662,6 +662,8 @@ Function to add spatial covariates to the workflow. The covariates may either be
 \item{\code{Object}}{A object of class: \code{spatRaster}, \code{SpatialPixelsDataFrame} or \code{raster} containing covariate information across the area. Note that this function will check if the covariates span the boundary area, so it may be preferable to add your own boundary using \code{`.$addArea`} if this argument is specified.}
 
 \item{\code{worldClim}}{Name of the worldClim to include in the model. See \code{?worldclim_country} from the \code{geodata} package for more information.}
+
+\item{\code{landCover}}{Name of the land cover covariates to include in the model. See \code{?landcover} from the \code{geodata} package for more information.}
 
 \item{\code{res}}{Resolution of the worldclim variable. Valid options are: \code{10}, \code{5}, \code{2.5} or \code{0.5} (minutes of a degree).}
 
