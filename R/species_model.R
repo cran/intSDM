@@ -614,6 +614,7 @@ if (nrow(strucData) > 0) {
 #' @param removeDuplicates Argument used to remove duplicate observations for a species across datasets. May take a long time if there are many observations obtained across multiple datasets. Defaults to \code{FALSE}.
 #' @param generateAbsences Generates absences for \code{'PA'} data. This is done by combining all the sampling locations for all the species, and creating an absence where a given species does not occur.
 #' @param filterDistance Remove all points that are x kilometers away from the boundary polygon. Value must be provided in kilometers. Defaults to 0 km which removes no points.
+#' @param findDatasets Find a list of dataset keys for the species included in the model.
 #' @param ... Additional arguments to specify the \link[rgbif]{occ_data} function from \code{rgbif}. See \code{?occ_data} for more details.
 #' @examples
 #' \dontrun{
@@ -634,14 +635,36 @@ addGBIF = function(Species = 'All', datasetName = NULL,
                    removeDuplicates = FALSE,
                    generateAbsences = FALSE,
                    filterDistance = 0,
+                   findDatasets = FALSE,
                    ...) {
 
   if (is.null(private$Area)) stop('An area needs to be provided before adding species. This may be done with the `.$addArea` function.')
 
-  if (is.null(datasetName)) stop('Please provide a name to give your dataset using datasetName.')
-
   if (Species == 'All') Species <- private$Species
   else if (!all(Species %in% private$Species)) stop ('Species provided not specified in startWorkflow().')
+
+  if (findDatasets) {
+
+    datasetList <- list()
+
+    for (spec in 1:length(Species)) {
+
+
+      dataCounts <- rgbif::occ_search(facet = 'datasetKey', scientificName = Species[spec],
+                                      geometry = st_bbox(st_as_sfc(st_transform(private$Area, "+proj=longlat +ellps=WGS84"))),
+                                      facetLimit=100000)
+
+      datasetList[[Species[spec]]] <- dataCounts$facets[[1]]
+
+
+    }
+
+    return(datasetList)
+
+
+  }
+
+  if (is.null(datasetName)) stop('Please provide a name to give your dataset using datasetName.')
 
   if (datasetName %in% names(private$dataGBIF)) warning ('datasetName already provided before. The older dataset will therefore be removed.')
 
@@ -994,6 +1017,7 @@ addGBIF = function(Species = 'All', datasetName = NULL,
 
     if (!is.list(ISDM)) stop('ISDM needs to be a list of arguments to specify the model.')
 
+    ##Add all the species things here too
     if (any(!names(ISDM) %in% c('pointCovariates', 'pointsIntercept', #Remove pointCovariates perhaps?
                                 'pointsSpatial', 'Offset'))) stop('ISDM needs to be a named list with at least one of the following options: "pointCovariates", "pointsIntercept", "pointsSpatial" or "Offset".')
 
@@ -1268,6 +1292,16 @@ obtainMeta = function(Number = TRUE,
 
     cat('Citation for WorldClim Data:\n')
     cat('Fick, S.E. and R.J. Hijmans, 2017. WorldClim 2: new 1km spatial resolution climate surfaces for global land areas. \nInternational Journal of Climatology 37 (12): 4302-4315.\n\n')
+
+  }
+
+  if (any(names(private$Covariates)) %in% c("trees", "grassland", "shrubs",
+                                            "cropland", "built", "bare",
+                                            "snow", "water", "wetland", "mangroves",
+                                            'moss')) {
+
+    cat('Citation for ESA landcover data:\n')
+    cat('Zanaga, D., Van De Kerchove, R., De Keersmaecker, W., Souverijns, N., Brockmann, C., Quast, R., Wevers, J., Grosu, A., Paccini, A., Vergnaud, S., Cartus, O., Santoro, M., Fritz, S., Georgieva, I., Lesiv, M., Carter, S., Herold, M., Li, Linlin, Tsendbazar, N.E., Ramoino, F., Arino, O., 2021. ESA WorldCover 10 m 2020 v100.\n\n')
 
   }
 
